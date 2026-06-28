@@ -194,8 +194,8 @@
     .project-card.purple .project-link:hover { text-shadow: 0 0 12px var(--purple); }
 
     /* ── Node Scanner ── */
-    .scanner-wrap { margin-bottom: 60px; border: 1px solid rgba(0,245,255,0.08); border-radius: 14px; background: rgba(0,0,0,0.6); overflow: hidden; }
-    #nodeCanvas { display: block; width: 100%; height: 500px; cursor: none; }
+    .scanner-wrap { margin-bottom: 60px; border: none; background: transparent; overflow: visible; position: relative; height: 500px; }
+    #nodeCanvas { display: none; }
     .scanner-hint-bar { text-align: center; padding: 10px 20px; border-top: 1px solid rgba(0,245,255,0.06); font-family: 'Share Tech Mono', monospace; font-size: 0.64rem; color: var(--dim); letter-spacing: 3px; }
 
     /* Logo pulse dot */
@@ -826,164 +826,162 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   if (!wrap) return;
   document.getElementById('nodeCanvas')?.remove();
 
-  const SCENE_H = 500;
+  const SCENE_H  = 500;   /* visible panel height */
+  const OVERFLOW = 90;    /* canvas px above+below → crystals overflow panel borders */
+  const CANVAS_H = SCENE_H + OVERFLOW * 2;
   let W = wrap.clientWidth;
   const L = THREE.MathUtils.lerp;
   const hintBar = wrap.querySelector('.scanner-hint-bar');
-  wrap.style.position = 'relative';
 
-  /* ── RENDERER ── */
+  /* ── Two separate panel borders — crystal 3D content overflows them ── */
+  const GAP = 14;
+  ['left','right'].forEach((side, i) => {
+    const d = document.createElement('div');
+    const col = i===0 ? 'rgba(0,200,235,0.22)' : 'rgba(136,80,255,0.24)';
+    const glow = i===0
+      ? 'inset 0 0 80px rgba(0,200,235,0.05),0 0 0 1px rgba(0,200,235,0.06)'
+      : 'inset 0 0 80px rgba(136,80,255,0.06),0 0 0 1px rgba(136,80,255,0.07)';
+    d.style.cssText = `position:absolute;top:0;${side}:0;width:calc(50% - ${GAP/2}px);height:${SCENE_H}px;border:1px solid ${col};border-radius:14px;pointer-events:none;z-index:4;box-shadow:${glow};`;
+    wrap.appendChild(d);
+  });
+
+  /* ── RENDERER (tall canvas for overflow) ── */
   const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-  renderer.setSize(W, SCENE_H);
+  renderer.setSize(W, CANVAS_H);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.toneMapping = THREE.ReinhardToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.domElement.style.cssText = `display:block;width:100%;height:${SCENE_H}px;cursor:crosshair;border-radius:13px 13px 0 0;position:relative;z-index:1;`;
+  /* canvas is absolutely positioned so it extends OVERFLOW px above the panel top */
+  renderer.domElement.style.cssText = `position:absolute;top:-${OVERFLOW}px;left:0;width:100%;height:${CANVAS_H}px;cursor:crosshair;z-index:2;border-radius:14px;`;
   wrap.insertBefore(renderer.domElement, hintBar);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x020408);
-  const camera = new THREE.PerspectiveCamera(55, W / SCENE_H, 0.1, 80);
-  camera.position.set(0, 0.2, 5.5);
+  const camera = new THREE.PerspectiveCamera(55, W / CANVAS_H, 0.1, 80);
+  camera.position.set(0, 0, 5.8);
+
+  /* ── Lights — needed for Phong glass shading ── */
+  scene.add(new THREE.AmbientLight(0x112233, 2.5));
+  const lN = new THREE.PointLight(0x00ccff, 5.0, 20); lN.position.set(-4, 3, 5);
+  const lC = new THREE.PointLight(0x9966ff, 4.5, 20); lC.position.set(4, -3, 5);
+  const lTop = new THREE.DirectionalLight(0x224466, 1.5); lTop.position.set(0, 8, 4);
+  scene.add(lN, lC, lTop);
 
   /* edge wireframe helper */
   function eLine(geo, col, op) {
-    const m = new THREE.LineBasicMaterial({ color: col, transparent: op < 1, opacity: op ?? 1 });
-    return new THREE.LineSegments(new THREE.EdgesGeometry(geo), m);
+    return new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: col, transparent: op < 1, opacity: op ?? 1 }));
   }
 
-  /* glass face fill — visible tinted fill using normal blending */
+  /* glass face — Phong with specular highlights, gives real glass look */
   function gFace(geo, col, op) {
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    const mesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
       color: col, transparent: true, opacity: op,
       side: THREE.DoubleSide, depthWrite: false,
+      shininess: 100,
+      specular: new THREE.Color(0x88ddff),
+      emissive: new THREE.Color(col).multiplyScalar(0.05),
     }));
-    mesh.scale.setScalar(0.992);
+    mesh.scale.setScalar(0.991);
     return mesh;
   }
 
-  /* ── LEFT NODE: Crystal Diamond — Fake News Detector ── */
+  /* ── LEFT NODE: Icosahedron — Fake News Detector ── */
   const newsGroup = new THREE.Group();
-  newsGroup.position.set(-2.3, 0.0, 0);
+  newsGroup.position.set(-3.0, 0, 0);
   scene.add(newsGroup);
 
-  const nOuter = eLine(new THREE.IcosahedronGeometry(1.95, 1), 0x00aacc, 0.80);
-  const nMid   = eLine(new THREE.OctahedronGeometry(1.35, 0),  0x0088aa, 0.52);
-  const nCore  = eLine(new THREE.IcosahedronGeometry(0.62, 0), 0x66ddee, 0.95);
-  const nFaceO = gFace(new THREE.IcosahedronGeometry(1.95, 1), 0x003344, 0.14);
-  const nFaceM = gFace(new THREE.OctahedronGeometry(1.35, 0),  0x004455, 0.18);
-  const nFaceC = gFace(new THREE.IcosahedronGeometry(0.62, 0), 0x0099bb, 0.22);
+  const nOuter = eLine(new THREE.IcosahedronGeometry(2.0, 1),  0x00aacc, 0.78);
+  const nMid   = eLine(new THREE.OctahedronGeometry(1.38, 0),  0x0088aa, 0.50);
+  const nCore  = eLine(new THREE.IcosahedronGeometry(0.65, 0), 0x66ddee, 0.95);
+  const nFaceO = gFace(new THREE.IcosahedronGeometry(2.0, 1),  0x003344, 0.13);
+  const nFaceM = gFace(new THREE.OctahedronGeometry(1.38, 0),  0x004455, 0.17);
+  const nFaceC = gFace(new THREE.IcosahedronGeometry(0.65, 0), 0x0099bb, 0.21);
   newsGroup.add(nOuter, nMid, nCore, nFaceO, nFaceM, nFaceC);
 
-  /* FAKE stream — magenta/pink particles flowing down-left */
+  /* particle streams */
   const fakeDir = new THREE.Vector3(-0.62, -0.50, 0.05).normalize();
-  /* FACT stream — green particles flowing up-right */
-  const factDir = new THREE.Vector3(0.55, 0.42, 0.08).normalize();
+  const factDir = new THREE.Vector3(0.55, 0.44, 0.08).normalize();
   const N_STREAM = 120;
 
   function makeStream(dir, col) {
-    /* build orthogonal frame for cone expansion */
     const tmp = Math.abs(dir.y) < 0.8 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
     const perpA = new THREE.Vector3().crossVectors(dir, tmp).normalize();
     const perpB = new THREE.Vector3().crossVectors(dir, perpA).normalize();
     const MAX_T = 4.8;
-
     const pos = new Float32Array(N_STREAM * 3);
     const vel = [];
     for (let i = 0; i < N_STREAM; i++) {
-      const t0    = Math.random() * MAX_T;
-      const cone  = (t0 / MAX_T) * 1.10;          /* radius widens with distance */
-      const angle = Math.random() * Math.PI * 2;
-      const r     = Math.sqrt(Math.random()) * cone;
+      const t0 = Math.random() * MAX_T, cone = (t0/MAX_T)*1.10;
+      const angle = Math.random()*Math.PI*2, r = Math.sqrt(Math.random())*cone;
       const ca = Math.cos(angle), sa = Math.sin(angle);
       pos[i*3]   = dir.x*t0 + (perpA.x*ca + perpB.x*sa)*r;
       pos[i*3+1] = dir.y*t0 + (perpA.y*ca + perpB.y*sa)*r;
       pos[i*3+2] = dir.z*t0 + (perpA.z*ca + perpB.z*sa)*r;
-      const spd   = 0.013 + Math.random() * 0.007;
-      const drift = (t0/MAX_T) * 0.0024;           /* outward drift — fans tip */
-      vel.push({
-        x: dir.x*spd + (perpA.x*ca + perpB.x*sa)*drift,
-        y: dir.y*spd + (perpA.y*ca + perpB.y*sa)*drift,
-        z: dir.z*spd + (perpA.z*ca + perpB.z*sa)*drift,
-      });
+      const spd = 0.013 + Math.random()*0.007, drift = (t0/MAX_T)*0.0024;
+      vel.push({ x: dir.x*spd+(perpA.x*ca+perpB.x*sa)*drift, y: dir.y*spd+(perpA.y*ca+perpB.y*sa)*drift, z: dir.z*spd+(perpA.z*ca+perpB.z*sa)*drift });
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.PointsMaterial({ color: col, size: 0.085, transparent: true, opacity: 0.82, sizeAttenuation: true });
+    const mat = new THREE.PointsMaterial({ color: col, size: 0.082, transparent: true, opacity: 0.82, sizeAttenuation: true });
     return { geo, mat, pos, vel, pts: new THREE.Points(geo, mat), dir, perpA, perpB, MAX_T };
   }
   const fakeStream = makeStream(fakeDir, 0xff00cc);
   const factStream = makeStream(factDir, 0x00ff88);
   newsGroup.add(fakeStream.pts, factStream.pts);
 
-  /* FAKE / FACT floating labels */
   function makeFloatLabel(text, col) {
     const d = document.createElement('div');
     d.textContent = text;
-    d.style.cssText = `position:absolute;font-family:'Share Tech Mono',monospace;font-size:0.70rem;letter-spacing:3px;color:${col};pointer-events:none;z-index:8;text-shadow:0 0 8px ${col},0 0 18px ${col};transform:translate(-50%,-50%);white-space:nowrap;transition:opacity .3s;`;
+    d.style.cssText = `position:absolute;font-family:'Share Tech Mono',monospace;font-size:0.70rem;letter-spacing:3px;color:${col};pointer-events:none;z-index:8;text-shadow:0 0 8px ${col},0 0 18px ${col};transform:translate(-50%,-50%);white-space:nowrap;`;
     wrap.insertBefore(d, hintBar);
     return d;
   }
   const fakeLabel = makeFloatLabel('FAKE', '#ff00cc');
   const factLabel = makeFloatLabel('FACT', '#00ff88');
 
-  /* ── RIGHT NODE: Star Crystal — CS2 AI Coach ── */
+  /* ── RIGHT NODE: Dodecahedron — CS2 AI Coach ── */
+  /* DodecahedronGeometry has 12 pentagonal faces — completely different silhouette vs Icosahedron */
   const cs2Group = new THREE.Group();
-  cs2Group.position.set(2.3, 0.0, 0);
+  cs2Group.position.set(3.0, 0, 0);
   scene.add(cs2Group);
 
-  const cOuter = eLine(new THREE.IcosahedronGeometry(1.95, 1), 0x8855ff, 0.82);
-  const cMid   = eLine(new THREE.OctahedronGeometry(1.35, 0),  0xaa77ff, 0.57);
-  const cCore  = eLine(new THREE.IcosahedronGeometry(0.62, 0), 0xeeddff, 0.95);
-  const cFaceO = gFace(new THREE.IcosahedronGeometry(1.95, 1), 0x220033, 0.14);
-  const cFaceM = gFace(new THREE.OctahedronGeometry(1.35, 0),  0x331155, 0.18);
-  const cFaceC = gFace(new THREE.IcosahedronGeometry(0.62, 0), 0x7744cc, 0.22);
+  const cOuter = eLine(new THREE.DodecahedronGeometry(2.0, 0), 0x8855ff, 0.80);
+  const cMid   = eLine(new THREE.IcosahedronGeometry(1.35, 0), 0xaa77ff, 0.55);
+  const cCore  = eLine(new THREE.OctahedronGeometry(0.65, 0),  0xeeddff, 0.95);
+  const cFaceO = gFace(new THREE.DodecahedronGeometry(2.0, 0), 0x1a0033, 0.13);
+  const cFaceM = gFace(new THREE.IcosahedronGeometry(1.35, 0), 0x2a0044, 0.17);
+  const cFaceC = gFace(new THREE.OctahedronGeometry(0.65, 0),  0x6633cc, 0.21);
   cs2Group.add(cOuter, cMid, cCore, cFaceO, cFaceM, cFaceC);
 
-  /* Orbital rings */
   function mkRing(r, tube, col, op, rx, ry, rz) {
-    const m = new THREE.Mesh(
-      new THREE.TorusGeometry(r, tube, 4, 80),
-      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op })
-    );
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 4, 80), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op }));
     m.rotation.set(rx, ry, rz); return m;
   }
-  const cRing1 = mkRing(2.45, 0.010, 0x8855ff, 0.45, Math.PI/2, 0, 0);
-  const cRing2 = mkRing(2.72, 0.008, 0x6633dd, 0.30, 0.38, 0.18, 0);
+  const cRing1 = mkRing(2.50, 0.010, 0x8855ff, 0.42, Math.PI/2, 0, 0);
+  const cRing2 = mkRing(2.75, 0.008, 0x6633dd, 0.27, 0.38, 0.18, 0);
   cs2Group.add(cRing1, cRing2);
 
-  /* CS2 map minimap panels — canvas textures on floating planes */
+  /* minimap + chart panels */
   function mkMap() {
     const c = document.createElement('canvas'); c.width = c.height = 128;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#04071a'; ctx.fillRect(0,0,128,128);
-    ctx.strokeStyle = 'rgba(90,65,200,0.35)'; ctx.lineWidth = 0.5;
-    for (let i = 0; i < 128; i += 16) {
-      ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,128); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(128,i); ctx.stroke();
-    }
-    // Map paths
-    ctx.strokeStyle = 'rgba(136,100,255,0.8)'; ctx.lineWidth = 1.4;
-    const path = [[12,30],[30,18],[58,32],[72,22],[84,52],[62,68],[40,62],[20,56],[12,30]];
+    ctx.fillStyle='#04071a'; ctx.fillRect(0,0,128,128);
+    ctx.strokeStyle='rgba(90,65,200,0.35)'; ctx.lineWidth=0.5;
+    for(let i=0;i<128;i+=16){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,128);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(128,i);ctx.stroke();}
+    ctx.strokeStyle='rgba(136,100,255,0.8)'; ctx.lineWidth=1.4;
+    const path=[[12,30],[30,18],[58,32],[72,22],[84,52],[62,68],[40,62],[20,56],[12,30]];
     ctx.beginPath(); path.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath(); ctx.stroke();
-    ctx.strokeStyle = 'rgba(120,90,255,0.45)'; ctx.lineWidth = 1;
-    for (let k=0;k<5;k++) { ctx.beginPath();ctx.moveTo(Math.random()*128,Math.random()*128);ctx.lineTo(Math.random()*128,Math.random()*128);ctx.stroke(); }
-    // Entity dots
-    ['#00ff88','#ff4444','#ffcc00','#4488ff'].forEach(col => {
-      ctx.fillStyle=col;
-      for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(Math.random()*110+9,Math.random()*110+9,2.2,0,Math.PI*2);ctx.fill();}
-    });
+    ctx.strokeStyle='rgba(120,90,255,0.45)'; ctx.lineWidth=1;
+    for(let k=0;k<5;k++){ctx.beginPath();ctx.moveTo(Math.random()*128,Math.random()*128);ctx.lineTo(Math.random()*128,Math.random()*128);ctx.stroke();}
+    ['#00ff88','#ff4444','#ffcc00','#4488ff'].forEach(col=>{ctx.fillStyle=col;for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(Math.random()*110+9,Math.random()*110+9,2.2,0,Math.PI*2);ctx.fill();}});
     return new THREE.CanvasTexture(c);
   }
   const map1 = new THREE.Mesh(new THREE.PlaneGeometry(1.1,1.1), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.82,side:THREE.DoubleSide}));
-  map1.position.set(2.2, 1.55, 0.1); map1.rotation.y = -0.28;
-  cs2Group.add(map1);
+  map1.position.set(2.3,1.6,0.1); map1.rotation.y=-0.28; cs2Group.add(map1);
   const map2 = new THREE.Mesh(new THREE.PlaneGeometry(1.0,1.0), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.68,side:THREE.DoubleSide}));
-  map2.position.set(2.1,-1.45, 0.08); map2.rotation.y = -0.24;
-  cs2Group.add(map2);
+  map2.position.set(2.2,-1.5,0.08); map2.rotation.y=-0.24; cs2Group.add(map2);
 
-  /* Chart panel */
   function mkChart() {
     const c=document.createElement('canvas'); c.width=180;c.height=88;
     const ctx=c.getContext('2d');
@@ -991,32 +989,25 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     ctx.strokeStyle='rgba(120,90,255,0.22)'; ctx.lineWidth=0.5;
     for(let i=0;i<180;i+=22){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,88);ctx.stroke();}
     for(let i=0;i<88;i+=22){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(180,i);ctx.stroke();}
-    const vals=[60,48,36,46,26,38,16,30,20,28];
     ctx.strokeStyle='#00ff88'; ctx.lineWidth=1.8; ctx.beginPath();
-    vals.forEach((v,i)=>{const x=i*(180/9);i?ctx.lineTo(x,v):ctx.moveTo(x,v);});
+    [60,48,36,46,26,38,16,30,20,28].forEach((v,i)=>{const x=i*(180/9);i?ctx.lineTo(x,v):ctx.moveTo(x,v);});
     ctx.stroke();
     ctx.fillStyle='rgba(0,255,136,0.07)'; ctx.lineTo(180,88);ctx.lineTo(0,88);ctx.closePath();ctx.fill();
     ctx.strokeStyle='rgba(136,100,255,0.55)'; ctx.lineWidth=1.2; ctx.beginPath();
-    const vals2=[72,65,58,52,48,55,44,50,42,46];
-    vals2.forEach((v,i)=>{const x=i*(180/9);i?ctx.lineTo(x,v):ctx.moveTo(x,v);});
+    [72,65,58,52,48,55,44,50,42,46].forEach((v,i)=>{const x=i*(180/9);i?ctx.lineTo(x,v):ctx.moveTo(x,v);});
     ctx.stroke();
     return new THREE.CanvasTexture(c);
   }
   const chartMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6,0.80), new THREE.MeshBasicMaterial({map:mkChart(),transparent:true,opacity:0.82,side:THREE.DoubleSide}));
-  chartMesh.position.set(2.4, 0.1, 0.12); chartMesh.rotation.y = -0.20;
-  cs2Group.add(chartMesh);
+  chartMesh.position.set(2.5,0.1,0.12); chartMesh.rotation.y=-0.20; cs2Group.add(chartMesh);
 
-  /* ── POST: Bloom (precise) + SMAA + ChromaticAberration ── */
+  /* ── POST-PROCESSING ── */
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-
-  /* threshold 0.30 — only bright edges glow, glass faces (dim additive) stay clean */
-  const bloom = new UnrealBloomPass(new THREE.Vector2(W, SCENE_H), 0.90, 0.42, 0.30);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(W, CANVAS_H), 0.88, 0.42, 0.30);
   composer.addPass(bloom);
-
-  const smaa = new SMAAPass(W * renderer.getPixelRatio(), SCENE_H * renderer.getPixelRatio());
+  const smaa = new SMAAPass(W*renderer.getPixelRatio(), CANVAS_H*renderer.getPixelRatio());
   composer.addPass(smaa);
-
   const chromaPass = new ShaderPass({
     uniforms: { tDiffuse:{value:null}, strength:{value:0.0010} },
     vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
@@ -1025,28 +1016,28 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   chromaPass.renderToScreen = true;
   composer.addPass(chromaPass);
 
-  /* ── SVG overlay for leader lines ── */
+  /* ── SVG overlay ── */
   const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9;overflow:visible;';
   wrap.insertBefore(svg, hintBar);
   function mkSvgLine(col) {
     const l = document.createElementNS('http://www.w3.org/2000/svg','line');
-    l.setAttribute('stroke',col); l.setAttribute('stroke-width','0.8');
-    l.setAttribute('stroke-dasharray','5,3'); l.setAttribute('opacity','0');
+    l.setAttribute('stroke',col); l.setAttribute('stroke-width','0.8'); l.setAttribute('stroke-dasharray','5,3'); l.setAttribute('opacity','0');
     svg.appendChild(l); return l;
   }
   const leaderL = mkSvgLine('#00f5ff');
   const leaderR = mkSvgLine('#8855ff');
 
+  /* proj: 3D world → wrap-relative px (canvas sits at top:-OVERFLOW) */
   function proj(v3) {
     const v = v3.clone().project(camera);
-    return { x:(v.x*0.5+0.5)*W, y:(-v.y*0.5+0.5)*SCENE_H };
+    return { x: (v.x*0.5+0.5)*W, y: (-v.y*0.5+0.5)*CANVAS_H - OVERFLOW };
   }
 
   /* ── INTERACTION ── */
   const ndc = new THREE.Vector2();
   const mouseWorld = new THREE.Vector3();
-  const pickPlane  = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
+  const pickPlane = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
   const ray = new THREE.Raycaster();
   let hovNode = null;
   const spring = { x:0, y:0, vx:0, vy:0 };
@@ -1055,16 +1046,13 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     const r = renderer.domElement.getBoundingClientRect();
     ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
   }
-
-  /* Screen-space picking — reliable for wireframe */
   function pickType() {
-    const mx = (ndc.x*0.5+0.5)*W, my = (-ndc.y*0.5+0.5)*SCENE_H;
-    const ns = proj(newsGroup.position), cs = proj(cs2Group.position);
-    const dn = Math.hypot(mx-ns.x, my-ns.y);
-    const dc = Math.hypot(mx-cs.x, my-cs.y);
-    const thr = W * 0.12;
-    if (dn < thr && dn < dc) return 'news';
-    if (dc < thr && dc < dn) return 'cs2';
+    const mx=(ndc.x*0.5+0.5)*W, my=(-ndc.y*0.5+0.5)*CANVAS_H-OVERFLOW;
+    const ns=proj(newsGroup.position), cs=proj(cs2Group.position);
+    const dn=Math.hypot(mx-ns.x,my-ns.y), dc=Math.hypot(mx-cs.x,my-cs.y);
+    const thr=W*0.15;
+    if(dn<thr&&dn<dc) return 'news';
+    if(dc<thr&&dc<dn) return 'cs2';
     return null;
   }
 
@@ -1073,15 +1061,15 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     const newHov = pickType();
     if (newHov !== hovNode) {
       hovNode = newHov;
-      if (hovNode === 'news') {
-        gsap.to(newsGroup.scale,{x:1.1,y:1.1,z:1.1,duration:0.5,ease:'power2.out'});
-        gsap.to(cs2Group.scale, {x:0.93,y:0.93,z:0.93,duration:0.4,ease:'power2.out'});
-      } else if (hovNode === 'cs2') {
-        gsap.to(cs2Group.scale, {x:1.1,y:1.1,z:1.1,duration:0.5,ease:'power2.out'});
-        gsap.to(newsGroup.scale,{x:0.93,y:0.93,z:0.93,duration:0.4,ease:'power2.out'});
+      if(hovNode==='news'){
+        gsap.to(newsGroup.scale,{x:1.08,y:1.08,z:1.08,duration:0.5,ease:'power2.out'});
+        gsap.to(cs2Group.scale,{x:0.94,y:0.94,z:0.94,duration:0.4,ease:'power2.out'});
+      } else if(hovNode==='cs2'){
+        gsap.to(cs2Group.scale,{x:1.08,y:1.08,z:1.08,duration:0.5,ease:'power2.out'});
+        gsap.to(newsGroup.scale,{x:0.94,y:0.94,z:0.94,duration:0.4,ease:'power2.out'});
       } else {
         gsap.to(newsGroup.scale,{x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
-        gsap.to(cs2Group.scale, {x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
+        gsap.to(cs2Group.scale,{x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
       }
     }
     ray.setFromCamera(ndc, camera);
@@ -1090,33 +1078,28 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   renderer.domElement.addEventListener('mouseleave', () => {
     hovNode=null; mouseWorld.set(0,0,0);
     gsap.to(newsGroup.scale,{x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
-    gsap.to(cs2Group.scale, {x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
+    gsap.to(cs2Group.scale,{x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
   });
 
   /* ── HTML OVERLAYS ── */
   const GLASS = 'background:rgba(2,4,15,0.74);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3);border:1px solid rgba(0,245,255,0.12);border-radius:8px;';
-
-  /* Widgets bar */
   const widgetsBar = document.createElement('div');
-  widgetsBar.style.cssText = `position:absolute;bottom:44px;left:50%;transform:translateX(-50%);display:flex;gap:12px;font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:1px;pointer-events:none;z-index:5;white-space:nowrap;`;
+  widgetsBar.style.cssText = `position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:12px;font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:1px;pointer-events:none;z-index:5;white-space:nowrap;`;
   [{key:'api',label:'API REQ/MIN',val:'120',col:'#00f5ff'},{key:'conn',label:'FASTAPI',val:'STABLE',col:'#00ff88'},{key:'models',label:'ACTIVE MODELS',val:'2',col:'#8855ff'}].forEach(w=>{
-    const d=document.createElement('div');
-    d.style.cssText=GLASS+'padding:5px 13px;text-align:center;';
+    const d=document.createElement('div'); d.style.cssText=GLASS+'padding:5px 13px;text-align:center;';
     d.innerHTML=`<div style="color:${w.col};opacity:0.45;font-size:0.50rem;letter-spacing:2px;">${w.label}</div><div style="color:${w.col};font-size:0.70rem;margin-top:1px;" data-wid="${w.key}">${w.val}</div>`;
     widgetsBar.appendChild(d);
   });
-  wrap.insertBefore(widgetsBar,hintBar);
+  wrap.insertBefore(widgetsBar, hintBar);
   setInterval(()=>{const el=wrap.querySelector('[data-wid="api"]');if(el)el.textContent=95+Math.floor(Math.random()*55);},1100);
 
-  /* Log panel */
   const panel = document.createElement('div');
   panel.style.cssText = GLASS+`position:absolute;top:14px;left:50%;transform:translateX(-50%);padding:12px 22px;font-family:'Share Tech Mono',monospace;font-size:0.63rem;line-height:1.85;color:#00f5ff;pointer-events:none;opacity:0;transition:opacity .22s;z-index:10;min-width:232px;white-space:nowrap;`;
-  wrap.insertBefore(panel,hintBar);
+  wrap.insertBefore(panel, hintBar);
 
-  /* Info card */
   const infoCard = document.createElement('div');
   infoCard.style.cssText = GLASS+`position:absolute;top:50%;transform:translateY(-50%);padding:14px 18px;font-family:'Share Tech Mono',monospace;font-size:0.60rem;line-height:1.9;pointer-events:none;opacity:0;transition:opacity .28s;z-index:11;width:192px;`;
-  wrap.insertBefore(infoCard,hintBar);
+  wrap.insertBefore(infoCard, hintBar);
 
   const AI_LOGS = {
     news:['> Initializing NLP engine...','> Scanning source credibility...','> Cross-referencing 142 outlets...','> Bias score: 12.3%','> VERDICT: 78.4% credibility ✓'],
@@ -1124,12 +1107,12 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   };
   const INFO = {
     news:{col:'#00f5ff',brd:'rgba(0,245,255,0.20)',left:'2%', title:'FAKE NEWS DETECTOR',lines:['Stack: Python + FastAPI','Engine: OpenAI GPT-4o','Sources: 142 databases','Accuracy: 94.2%','Latency: ~1.2 s / req']},
-    cs2: {col:'#8855ff',brd:'rgba(136,85,255,0.20)', left:'67%',title:'CS2 AI COACH',      lines:['Stack: Python + Aiogram','Engine: Groq LLaMA-3','Input: match replay data','Winrate boost: +14.2%','400+ sessions analyzed']},
+    cs2: {col:'#8855ff',brd:'rgba(136,85,255,0.20)',left:'67%',title:'CS2 AI COACH',      lines:['Stack: Python + Aiogram','Engine: Groq LLaMA-3','Input: match replay data','Winrate boost: +14.2%','400+ sessions analyzed']},
   };
 
   let activeNode=null,logTimer=null,logIdx=0;
   function openPanel(type) {
-    if (activeNode===type){closePanel();return;}
+    if(activeNode===type){closePanel();return;}
     activeNode=type;
     const info=INFO[type];
     panel.style.borderColor=info.brd; panel.style.color=info.col;
@@ -1166,74 +1149,58 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     const dt=clock.getDelta(), t=clock.getElapsedTime();
     const hn=hovNode==='news', hc=hovNode==='cs2', any=hn||hc;
 
-    /* spring tilt */
-    const tx=(mouseWorld.y/3)*0.20, ty=(mouseWorld.x/5)*0.18;
+    const tx=(mouseWorld.y/3)*0.18, ty=(mouseWorld.x/5)*0.16;
     spring.vx+=(tx-spring.x)*0.06; spring.vx*=0.82;
     spring.vy+=(ty-spring.y)*0.06; spring.vy*=0.82;
     spring.x+=spring.vx; spring.y+=spring.vy;
 
-    /* LEFT: Crystal Diamond */
-    autoN += dt*(hn ? 1.6 : 0.26);
+    /* LEFT: Icosahedron Diamond */
+    autoN += dt*(hn ? 1.6 : 0.24);
     newsGroup.rotation.y = autoN + spring.y;
     newsGroup.rotation.x = Math.sin(t*0.38)*0.07 + spring.x;
-    nMid.rotation.z  += dt*(hn ? 2.8 : 0.62);
+    nMid.rotation.z  += dt*(hn ? 2.8 : 0.60);
     nCore.rotation.y += dt*(hn ? 4.0 : 1.2);
-    nCore.rotation.x += dt*(hn ? 2.5 : 0.75);
+    nCore.rotation.x += dt*(hn ? 2.5 : 0.72);
 
-    /* RIGHT: Star Crystal */
-    autoC -= dt*(hc ? 1.6 : 0.26);
+    /* RIGHT: Dodecahedron */
+    autoC -= dt*(hc ? 1.6 : 0.24);
     cs2Group.rotation.y = autoC - spring.y;
     cs2Group.rotation.x = Math.sin(t*0.44+1)*0.06 - spring.x;
-    cMid.rotation.z  += dt*(hc ? 2.5 : 0.58);
-    cCore.rotation.y += dt*(hc ? 3.5 : 1.05);
-    cCore.rotation.x += dt*(hc ? 2.1 : 0.60);
-    cRing1.rotation.z += dt*(hc ? 2.2 : 0.65);
-    cRing2.rotation.x += dt*(hc ? 1.6 : 0.50);
+    cMid.rotation.z  += dt*(hc ? 2.5 : 0.55);
+    cCore.rotation.y += dt*(hc ? 3.5 : 1.0);
+    cCore.rotation.x += dt*(hc ? 2.1 : 0.58);
+    cRing1.rotation.z += dt*(hc ? 2.2 : 0.62);
+    cRing2.rotation.x += dt*(hc ? 1.6 : 0.48);
 
-    /* Bloom: subtle hover pulse — glass faces must stay readable */
-    bloom.strength = L(bloom.strength, any ? 1.25 : 0.90, 0.06);
+    bloom.strength = L(bloom.strength, any ? 1.18 : 0.86, 0.06);
 
-    /* FAKE/FACT particle streams — cone-expanding, reset near origin */
     for (const s of [fakeStream, factStream]) {
       for (let i=0; i<N_STREAM; i++) {
         s.pos[i*3]   += s.vel[i].x;
         s.pos[i*3+1] += s.vel[i].y;
         s.pos[i*3+2] += s.vel[i].z;
-        const dist = Math.hypot(s.pos[i*3], s.pos[i*3+1], s.pos[i*3+2]);
-        if (dist > s.MAX_T + 0.5) {
-          /* respawn near origin with narrow cone */
-          const t0    = Math.random() * 0.5;
-          const cone  = (t0 / s.MAX_T) * 1.10;
-          const angle = Math.random() * Math.PI * 2;
-          const r     = Math.random() * cone;
-          const ca = Math.cos(angle), sa = Math.sin(angle);
-          s.pos[i*3]   = s.dir.x*t0 + (s.perpA.x*ca + s.perpB.x*sa)*r;
-          s.pos[i*3+1] = s.dir.y*t0 + (s.perpA.y*ca + s.perpB.y*sa)*r;
-          s.pos[i*3+2] = s.dir.z*t0 + (s.perpA.z*ca + s.perpB.z*sa)*r;
-          const spd   = 0.013 + Math.random() * 0.007;
-          const drift = (t0 / s.MAX_T) * 0.0024;
-          s.vel[i] = {
-            x: s.dir.x*spd + (s.perpA.x*ca + s.perpB.x*sa)*drift,
-            y: s.dir.y*spd + (s.perpA.y*ca + s.perpB.y*sa)*drift,
-            z: s.dir.z*spd + (s.perpA.z*ca + s.perpB.z*sa)*drift,
-          };
+        if (Math.hypot(s.pos[i*3],s.pos[i*3+1],s.pos[i*3+2]) > s.MAX_T+0.5) {
+          const t0=Math.random()*0.5, cone=(t0/s.MAX_T)*1.10, angle=Math.random()*Math.PI*2, r=Math.random()*cone;
+          const ca=Math.cos(angle), sa=Math.sin(angle);
+          s.pos[i*3]  = s.dir.x*t0+(s.perpA.x*ca+s.perpB.x*sa)*r;
+          s.pos[i*3+1]= s.dir.y*t0+(s.perpA.y*ca+s.perpB.y*sa)*r;
+          s.pos[i*3+2]= s.dir.z*t0+(s.perpA.z*ca+s.perpB.z*sa)*r;
+          const spd=0.013+Math.random()*0.007, drift=(t0/s.MAX_T)*0.0024;
+          s.vel[i]={x:s.dir.x*spd+(s.perpA.x*ca+s.perpB.x*sa)*drift,y:s.dir.y*spd+(s.perpA.y*ca+s.perpB.y*sa)*drift,z:s.dir.z*spd+(s.perpA.z*ca+s.perpB.z*sa)*drift};
         }
       }
       s.geo.attributes.position.needsUpdate = true;
       s.mat.opacity = L(s.mat.opacity, hn ? 0.95 : 0.82, 0.05);
     }
 
-    /* Float FAKE/FACT labels at stream tips */
-    fakeEndW.set(fakeDir.x*4.2, fakeDir.y*4.2, fakeDir.z*4.2).applyMatrix4(newsGroup.matrixWorld);
-    factEndW.set(factDir.x*3.7, factDir.y*3.7, factDir.z*3.7).applyMatrix4(newsGroup.matrixWorld);
+    fakeEndW.set(fakeDir.x*4.2,fakeDir.y*4.2,fakeDir.z*4.2).applyMatrix4(newsGroup.matrixWorld);
+    factEndW.set(factDir.x*3.7,factDir.y*3.7,factDir.z*3.7).applyMatrix4(newsGroup.matrixWorld);
     const fs=proj(fakeEndW), fts=proj(factEndW);
-    fakeLabel.style.left=fs.x+'px';  fakeLabel.style.top=fs.y+'px';
+    fakeLabel.style.left=fs.x+'px'; fakeLabel.style.top=fs.y+'px';
     factLabel.style.left=fts.x+'px'; factLabel.style.top=fts.y+'px';
 
-    /* SVG leader lines — connect 3D node to infoCard */
     if (activeNode) {
-      newsGroup.getWorldPosition(nWP);
-      cs2Group.getWorldPosition(cWP);
+      newsGroup.getWorldPosition(nWP); cs2Group.getWorldPosition(cWP);
       const wR=wrap.getBoundingClientRect(), cR=infoCard.getBoundingClientRect();
       const cx=cR.left-wR.left+cR.width*0.5, cy=cR.top-wR.top+cR.height*0.5;
       if (activeNode==='news') {
@@ -1253,12 +1220,12 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   /* ── RESIZE ── */
   window.addEventListener('resize', () => {
     W = wrap.clientWidth;
-    renderer.setSize(W, SCENE_H);
-    composer.setSize(W, SCENE_H);
-    camera.aspect = W / SCENE_H;
+    renderer.setSize(W, CANVAS_H);
+    composer.setSize(W, CANVAS_H);
+    camera.aspect = W / CANVAS_H;
     camera.updateProjectionMatrix();
-    bloom.resolution.set(W, SCENE_H);
-    smaa.setSize(W*renderer.getPixelRatio(), SCENE_H*renderer.getPixelRatio());
+    bloom.resolution.set(W, CANVAS_H);
+    smaa.setSize(W*renderer.getPixelRatio(), CANVAS_H*renderer.getPixelRatio());
   });
 })();
 </script>
