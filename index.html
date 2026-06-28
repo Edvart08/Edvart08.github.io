@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 
+  <script>if('scrollRestoration'in history)history.scrollRestoration='manual';window.addEventListener('load',()=>window.scrollTo(0,0));</script>
   <script type="importmap">
   {
     "imports": {
@@ -844,7 +845,7 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x020408);
   const camera = new THREE.PerspectiveCamera(50, W / SCENE_H, 0.1, 80);
-  camera.position.set(0, 0.5, 11.0);
+  camera.position.set(0, 0.5, 17.0);
 
   /* edge wireframe helper */
   function eLine(geo, col, op) {
@@ -852,29 +853,28 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     return new THREE.LineSegments(new THREE.EdgesGeometry(geo), m);
   }
 
-  /* glass face fill — semi-transparent additive mesh for faceted glass look */
+  /* glass face fill — visible tinted fill using normal blending */
   function gFace(geo, col, op) {
-    return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
       color: col, transparent: true, opacity: op,
       side: THREE.DoubleSide, depthWrite: false,
-      blending: THREE.AdditiveBlending,
     }));
+    mesh.scale.setScalar(0.992);
+    return mesh;
   }
 
   /* ── LEFT NODE: Crystal Diamond — Fake News Detector ── */
   const newsGroup = new THREE.Group();
-  newsGroup.position.set(-3.1, 0.0, 0);
+  newsGroup.position.set(-4.5, 0.0, 0);
   scene.add(newsGroup);
 
-  /* Multi-layer crystal: outer icosahedron + inner octahedron + core */
-  /* Dimmer cyan (0x00aacc vs 0x00f5ff) prevents over-bloom with Reinhard tone */
-  const nOuter = eLine(new THREE.IcosahedronGeometry(1.55, 1), 0x00aacc, 0.82);
-  const nMid   = eLine(new THREE.OctahedronGeometry(1.08, 0), 0x0088aa, 0.55);
-  const nCore  = eLine(new THREE.IcosahedronGeometry(0.52, 0), 0x66ddee, 0.95);
-  /* Glass face fills — additive blending creates crystal facet sheen */
-  const nFaceO = gFace(new THREE.IcosahedronGeometry(1.55, 1), 0x004466, 0.060);
-  const nFaceM = gFace(new THREE.OctahedronGeometry(1.08, 0),  0x005577, 0.090);
-  const nFaceC = gFace(new THREE.IcosahedronGeometry(0.52, 0), 0x44aacc, 0.110);
+  const nOuter = eLine(new THREE.IcosahedronGeometry(3.0, 1), 0x00aacc, 0.80);
+  const nMid   = eLine(new THREE.OctahedronGeometry(2.1, 0),  0x0088aa, 0.52);
+  const nCore  = eLine(new THREE.IcosahedronGeometry(1.0, 0), 0x66ddee, 0.95);
+  /* Glass faces — tinted fills using normal blending, clearly visible */
+  const nFaceO = gFace(new THREE.IcosahedronGeometry(3.0, 1), 0x003344, 0.15);
+  const nFaceM = gFace(new THREE.OctahedronGeometry(2.1, 0),  0x004455, 0.19);
+  const nFaceC = gFace(new THREE.IcosahedronGeometry(1.0, 0), 0x0099bb, 0.22);
   newsGroup.add(nOuter, nMid, nCore, nFaceO, nFaceM, nFaceC);
 
   /* FAKE stream — magenta/pink particles flowing down-left */
@@ -884,20 +884,35 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   const N_STREAM = 120;
 
   function makeStream(dir, col) {
+    /* build orthogonal frame for cone expansion */
+    const tmp = Math.abs(dir.y) < 0.8 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+    const perpA = new THREE.Vector3().crossVectors(dir, tmp).normalize();
+    const perpB = new THREE.Vector3().crossVectors(dir, perpA).normalize();
+    const MAX_T = 7.5;
+
     const pos = new Float32Array(N_STREAM * 3);
     const vel = [];
     for (let i = 0; i < N_STREAM; i++) {
-      const t0 = Math.random() * 4.0;
-      pos[i*3]   = dir.x * t0 + (Math.random()-0.5) * 0.20;
-      pos[i*3+1] = dir.y * t0 + (Math.random()-0.5) * 0.20;
-      pos[i*3+2] = dir.z * t0 + (Math.random()-0.5) * 0.08;
-      const spd  = 0.014 + Math.random() * 0.008;
-      vel.push({ x: dir.x*spd, y: dir.y*spd, z: dir.z*spd });
+      const t0    = Math.random() * MAX_T;
+      const cone  = (t0 / MAX_T) * 1.10;          /* radius widens with distance */
+      const angle = Math.random() * Math.PI * 2;
+      const r     = Math.sqrt(Math.random()) * cone;
+      const ca = Math.cos(angle), sa = Math.sin(angle);
+      pos[i*3]   = dir.x*t0 + (perpA.x*ca + perpB.x*sa)*r;
+      pos[i*3+1] = dir.y*t0 + (perpA.y*ca + perpB.y*sa)*r;
+      pos[i*3+2] = dir.z*t0 + (perpA.z*ca + perpB.z*sa)*r;
+      const spd   = 0.013 + Math.random() * 0.007;
+      const drift = (t0/MAX_T) * 0.0024;           /* outward drift — fans tip */
+      vel.push({
+        x: dir.x*spd + (perpA.x*ca + perpB.x*sa)*drift,
+        y: dir.y*spd + (perpA.y*ca + perpB.y*sa)*drift,
+        z: dir.z*spd + (perpA.z*ca + perpB.z*sa)*drift,
+      });
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.PointsMaterial({ color: col, size: 0.062, transparent: true, opacity: 0.82, sizeAttenuation: true });
-    return { geo, mat, pos, vel, pts: new THREE.Points(geo, mat), dir };
+    const mat = new THREE.PointsMaterial({ color: col, size: 0.085, transparent: true, opacity: 0.82, sizeAttenuation: true });
+    return { geo, mat, pos, vel, pts: new THREE.Points(geo, mat), dir, perpA, perpB, MAX_T };
   }
   const fakeStream = makeStream(fakeDir, 0xff00cc);
   const factStream = makeStream(factDir, 0x00ff88);
@@ -916,16 +931,16 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 
   /* ── RIGHT NODE: Star Crystal — CS2 AI Coach ── */
   const cs2Group = new THREE.Group();
-  cs2Group.position.set(3.1, 0.0, 0);
+  cs2Group.position.set(4.5, 0.0, 0);
   scene.add(cs2Group);
 
-  const cOuter = eLine(new THREE.IcosahedronGeometry(1.55, 1), 0x8855ff, 0.85);
-  const cMid   = eLine(new THREE.OctahedronGeometry(1.08, 0), 0xaa77ff, 0.60);
-  const cCore  = eLine(new THREE.IcosahedronGeometry(0.52, 0), 0xeeddff, 0.95);
-  /* Glass face fills for right node */
-  const cFaceO = gFace(new THREE.IcosahedronGeometry(1.55, 1), 0x330066, 0.060);
-  const cFaceM = gFace(new THREE.OctahedronGeometry(1.08, 0),  0x442299, 0.090);
-  const cFaceC = gFace(new THREE.IcosahedronGeometry(0.52, 0), 0x9977ff, 0.110);
+  const cOuter = eLine(new THREE.IcosahedronGeometry(3.0, 1), 0x8855ff, 0.82);
+  const cMid   = eLine(new THREE.OctahedronGeometry(2.1, 0),  0xaa77ff, 0.57);
+  const cCore  = eLine(new THREE.IcosahedronGeometry(1.0, 0), 0xeeddff, 0.95);
+  /* Glass faces for right node */
+  const cFaceO = gFace(new THREE.IcosahedronGeometry(3.0, 1), 0x220033, 0.15);
+  const cFaceM = gFace(new THREE.OctahedronGeometry(2.1, 0),  0x331155, 0.19);
+  const cFaceC = gFace(new THREE.IcosahedronGeometry(1.0, 0), 0x7744cc, 0.22);
   cs2Group.add(cOuter, cMid, cCore, cFaceO, cFaceM, cFaceC);
 
   /* Orbital rings */
@@ -936,8 +951,8 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     );
     m.rotation.set(rx, ry, rz); return m;
   }
-  const cRing1 = mkRing(2.05, 0.007, 0x8855ff, 0.50, Math.PI/2, 0, 0);
-  const cRing2 = mkRing(2.25, 0.005, 0x6633dd, 0.35, 0.38, 0.18, 0);
+  const cRing1 = mkRing(3.85, 0.012, 0x8855ff, 0.45, Math.PI/2, 0, 0);
+  const cRing2 = mkRing(4.25, 0.009, 0x6633dd, 0.30, 0.38, 0.18, 0);
   cs2Group.add(cRing1, cRing2);
 
   /* CS2 map minimap panels — canvas textures on floating planes */
@@ -963,11 +978,11 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     });
     return new THREE.CanvasTexture(c);
   }
-  const map1 = new THREE.Mesh(new THREE.PlaneGeometry(1.15,1.15), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.78,side:THREE.DoubleSide}));
-  map1.position.set(-2.8, 1.40, -0.4); map1.rotation.y = 0.30;
+  const map1 = new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.80,side:THREE.DoubleSide}));
+  map1.position.set(-4.5, 2.6, -0.5); map1.rotation.y = 0.28;
   cs2Group.add(map1);
-  const map2 = new THREE.Mesh(new THREE.PlaneGeometry(1.05,1.05), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.65,side:THREE.DoubleSide}));
-  map2.position.set(-2.6,-1.50,-0.35); map2.rotation.y = 0.24;
+  const map2 = new THREE.Mesh(new THREE.PlaneGeometry(1.25,1.25), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.65,side:THREE.DoubleSide}));
+  map2.position.set(-4.2,-2.8,-0.40); map2.rotation.y = 0.22;
   cs2Group.add(map2);
 
   /* Chart panel */
@@ -989,8 +1004,8 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     ctx.stroke();
     return new THREE.CanvasTexture(c);
   }
-  const chartMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.65,0.82), new THREE.MeshBasicMaterial({map:mkChart(),transparent:true,opacity:0.78,side:THREE.DoubleSide}));
-  chartMesh.position.set(2.7, 1.10, -0.3); chartMesh.rotation.y = -0.24;
+  const chartMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.0,1.0), new THREE.MeshBasicMaterial({map:mkChart(),transparent:true,opacity:0.80,side:THREE.DoubleSide}));
+  chartMesh.position.set(4.6, 2.0, -0.3); chartMesh.rotation.y = -0.22;
   cs2Group.add(chartMesh);
 
   /* ── POST: Bloom (precise) + SMAA + ChromaticAberration ── */
@@ -1180,27 +1195,39 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     /* Bloom: subtle hover pulse — glass faces must stay readable */
     bloom.strength = L(bloom.strength, any ? 1.25 : 0.90, 0.06);
 
-    /* FAKE/FACT particle streams — flow outward, reset at boundary */
+    /* FAKE/FACT particle streams — cone-expanding, reset near origin */
     for (const s of [fakeStream, factStream]) {
-      const d = s.dir;
       for (let i=0; i<N_STREAM; i++) {
         s.pos[i*3]   += s.vel[i].x;
         s.pos[i*3+1] += s.vel[i].y;
         s.pos[i*3+2] += s.vel[i].z;
-        if (Math.hypot(s.pos[i*3], s.pos[i*3+1]) > 6.0) {
-          const t0 = Math.random() * 0.35;
-          s.pos[i*3]   = d.x*t0 + (Math.random()-0.5)*0.16;
-          s.pos[i*3+1] = d.y*t0 + (Math.random()-0.5)*0.16;
-          s.pos[i*3+2] = d.z*t0 + (Math.random()-0.5)*0.07;
+        const dist = Math.hypot(s.pos[i*3], s.pos[i*3+1], s.pos[i*3+2]);
+        if (dist > s.MAX_T + 0.5) {
+          /* respawn near origin with narrow cone */
+          const t0    = Math.random() * 0.5;
+          const cone  = (t0 / s.MAX_T) * 1.10;
+          const angle = Math.random() * Math.PI * 2;
+          const r     = Math.random() * cone;
+          const ca = Math.cos(angle), sa = Math.sin(angle);
+          s.pos[i*3]   = s.dir.x*t0 + (s.perpA.x*ca + s.perpB.x*sa)*r;
+          s.pos[i*3+1] = s.dir.y*t0 + (s.perpA.y*ca + s.perpB.y*sa)*r;
+          s.pos[i*3+2] = s.dir.z*t0 + (s.perpA.z*ca + s.perpB.z*sa)*r;
+          const spd   = 0.013 + Math.random() * 0.007;
+          const drift = (t0 / s.MAX_T) * 0.0024;
+          s.vel[i] = {
+            x: s.dir.x*spd + (s.perpA.x*ca + s.perpB.x*sa)*drift,
+            y: s.dir.y*spd + (s.perpA.y*ca + s.perpB.y*sa)*drift,
+            z: s.dir.z*spd + (s.perpA.z*ca + s.perpB.z*sa)*drift,
+          };
         }
       }
       s.geo.attributes.position.needsUpdate = true;
-      s.mat.opacity = L(s.mat.opacity, hn ? 0.95 : 0.80, 0.05);
+      s.mat.opacity = L(s.mat.opacity, hn ? 0.95 : 0.82, 0.05);
     }
 
-    /* Float FAKE/FACT labels at stream tips — scaled for bigger crystal */
-    fakeEndW.set(fakeDir.x*4.8, fakeDir.y*4.8, fakeDir.z*4.8).applyMatrix4(newsGroup.matrixWorld);
-    factEndW.set(factDir.x*4.2, factDir.y*4.2, factDir.z*4.2).applyMatrix4(newsGroup.matrixWorld);
+    /* Float FAKE/FACT labels at stream tips */
+    fakeEndW.set(fakeDir.x*7.5, fakeDir.y*7.5, fakeDir.z*7.5).applyMatrix4(newsGroup.matrixWorld);
+    factEndW.set(factDir.x*6.5, factDir.y*6.5, factDir.z*6.5).applyMatrix4(newsGroup.matrixWorld);
     const fs=proj(fakeEndW), fts=proj(factEndW);
     fakeLabel.style.left=fs.x+'px';  fakeLabel.style.top=fs.y+'px';
     factLabel.style.left=fts.x+'px'; factLabel.style.top=fts.y+'px';
