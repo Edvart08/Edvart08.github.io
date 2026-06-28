@@ -820,11 +820,10 @@ addEventListener('mousemove',e=>{
 import * as THREE         from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { SMAAPass }       from 'three/addons/postprocessing/SMAAPass.js';
 import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
 
-(function initAAA() {
+(function initScene() {
   const gsap = window.gsap;
   const wrap = document.querySelector('.scanner-wrap');
   if (!wrap) return;
@@ -848,28 +847,21 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
 
   /* ── SCENE / CAMERA ── */
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x05050a);
-
+  scene.background = new THREE.Color(0x03050f);
   const camera = new THREE.PerspectiveCamera(48, W / SCENE_H, 0.1, 80);
   camera.position.set(0, 0.4, 9);
 
-  /* ── ENV MAP: canvas PMREM — gives glass surfaces something to reflect ── */
+  /* ── ENV MAP ── */
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
   const eCvs = document.createElement('canvas');
   eCvs.width = 512; eCvs.height = 256;
   const eCtx = eCvs.getContext('2d');
   eCtx.fillStyle = '#02020a'; eCtx.fillRect(0, 0, 512, 256);
-  [
-    [80,  70,  140, 'rgba(0,245,255,'],
-    [432, 110, 110, 'rgba(191,95,255,'],
-    [256, 40,   90, 'rgba(210,230,255,'],
-    [50,  200,  80, 'rgba(0,80,200,'],
-    [460, 220,  70, 'rgba(140,0,255,'],
-  ].forEach(([x,y,r,c]) => {
+  [[80,70,90,'rgba(0,245,255,'],[432,110,80,'rgba(191,95,255,'],[256,40,60,'rgba(200,220,255,']].forEach(([x,y,r,c]) => {
     const g = eCtx.createRadialGradient(x,y,0,x,y,r);
-    g.addColorStop(0, c+'0.9)'); g.addColorStop(1, c+'0)');
-    eCtx.fillStyle = g; eCtx.fillRect(0,0,512,256);
+    g.addColorStop(0,c+'0.55)'); g.addColorStop(1,c+'0)');
+    eCtx.fillStyle=g; eCtx.fillRect(0,0,512,256);
   });
   const eTex = new THREE.CanvasTexture(eCvs);
   eTex.mapping = THREE.EquirectangularReflectionMapping;
@@ -877,88 +869,151 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
   scene.environment = envMap;
   pmrem.dispose(); eTex.dispose();
 
-  /* ── 5 COLORED LIGHTS (blue, purple, white + 2 rim) ── */
-  scene.add(new THREE.AmbientLight(0x080818, 1.2));
-  const lBlue  = new THREE.PointLight(0x00f5ff, 5, 22); lBlue.position.set(-5,  3,  6); scene.add(lBlue);
-  const lPurp  = new THREE.PointLight(0xbf5fff, 5, 22); lPurp.position.set( 5,  3,  6); scene.add(lPurp);
-  const lWhite = new THREE.PointLight(0xe8f0ff, 3, 20); lWhite.position.set( 0, -3,  8); scene.add(lWhite);
-  const lRimL  = new THREE.PointLight(0x0055ff,  2, 18); lRimL.position.set(-4, -2, -3); scene.add(lRimL);
-  const lRimR  = new THREE.PointLight(0x7700ff,  2, 18); lRimR.position.set( 4, -2, -3); scene.add(lRimR);
-  const spotL  = new THREE.SpotLight(0x00f5ff, 0, 24, Math.PI/7, 0.35);
-  spotL.position.set(0, 7, 3); scene.add(spotL); scene.add(spotL.target);
+  /* ── LIGHTS ── */
+  scene.add(new THREE.AmbientLight(0x0a0d1a, 1.4));
+  const lBlue  = new THREE.PointLight(0x00f5ff, 4, 20); lBlue.position.set(-5, 3, 6); scene.add(lBlue);
+  const lPurp  = new THREE.PointLight(0xbf5fff, 4, 20); lPurp.position.set( 5, 3, 6); scene.add(lPurp);
+  const lWhite = new THREE.PointLight(0xd0e8ff, 2, 18); lWhite.position.set( 0,-3, 8); scene.add(lWhite);
+  const spotL  = new THREE.SpotLight(0x00f5ff, 0, 22, Math.PI/6, 0.3);
+  spotL.position.set(0, 6, 3); scene.add(spotL); scene.add(spotL.target);
 
-  /* ── GLASS MATERIAL FACTORY ── */
-  function glassMat(hex) {
-    const col = new THREE.Color(hex);
-    return new THREE.MeshPhysicalMaterial({
-      color: col, emissive: col, emissiveIntensity: 0.18,
-      metalness: 0.02, roughness: 0.12,
-      transmission: 0.55, thickness: 1.0, ior: 1.52,
-      envMap, envMapIntensity: 0.7,
-      transparent: true, opacity: 0.88, side: THREE.DoubleSide,
-    });
+  /* ── CIRCUIT BOARD TEXTURE (canvas-drawn PCB traces) ── */
+  function makeCircuit(size) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#010c0c'; ctx.fillRect(0,0,size,size);
+    const step = size / 9;
+    ctx.lineWidth = 1.3;
+    for (let i = 0; i < 9; i++) {
+      for (let j = 0; j < 9; j++) {
+        const x = i*step + step*0.5, y = j*step + step*0.5;
+        ctx.globalAlpha = 0.45 + Math.random()*0.45;
+        ctx.strokeStyle = Math.random()>0.5 ? '#00f5ff' : '#00b8cc';
+        if (Math.random() > 0.3) {
+          ctx.beginPath(); ctx.moveTo(x, y);
+          const horiz = Math.random() > 0.5;
+          const len   = step * (0.45 + Math.random()*0.65);
+          if (horiz) ctx.lineTo(x + (Math.random()>0.5?len:-len), y);
+          else       ctx.lineTo(x, y + (Math.random()>0.5?len:-len));
+          ctx.stroke();
+        }
+        // Pad dot
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = '#00f5ff';
+        ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI*2); ctx.fill();
+      }
+    }
+    // Right-angle cross-connects
+    ctx.globalAlpha = 0.25; ctx.strokeStyle = '#00f5ff'; ctx.lineWidth = 1;
+    for (let k = 0; k < 22; k++) {
+      const x1=Math.random()*size, y1=Math.random()*size;
+      const x2=x1+(Math.random()-0.5)*step*2.2, y2=y1+(Math.random()-0.5)*step*2.2;
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    }
+    return new THREE.CanvasTexture(c);
   }
 
-  /* ── LEFT NODE: Data Sphere Scanner ── */
+  /* ── LEFT NODE: Sphere — Planet Processor ── */
   const newsGroup = new THREE.Group();
   newsGroup.position.set(-2.8, 0, 0);
   scene.add(newsGroup);
 
-  const sphereMat = glassMat('#00f5ff');
-  newsGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), sphereMat));
+  const circuitTex = makeCircuit(512);
+  const sphereMat = new THREE.MeshPhysicalMaterial({
+    color: 0x001414, emissive: new THREE.Color(0x00f5ff), emissiveIntensity: 0.14,
+    emissiveMap: circuitTex, map: circuitTex,
+    metalness: 0.08, roughness: 0.4,
+    transmission: 0.08, envMap, envMapIntensity: 0.55,
+    transparent: true, opacity: 0.95,
+  });
+  newsGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1, 36, 22), sphereMat));
 
-  const sWireMat = new THREE.MeshBasicMaterial({ color: 0x00f5ff, wireframe: true, transparent: true, opacity: 0.28 });
-  newsGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.014, 18, 12), sWireMat));
+  // Wireframe shell
+  const sWireMat = new THREE.MeshBasicMaterial({ color: 0x00f5ff, wireframe: true, transparent: true, opacity: 0.20 });
+  newsGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.013, 18, 12), sWireMat));
+
+  // Inner rotating core (octahedron)
+  const coreGroup = new THREE.Group();
+  newsGroup.add(coreGroup);
+  const coreMat = new THREE.MeshPhysicalMaterial({
+    color: 0x003030, emissive: new THREE.Color(0x00f5ff), emissiveIntensity: 0.45,
+    metalness: 0.2, roughness: 0.15, transparent: true, opacity: 0.42,
+  });
+  coreGroup.add(new THREE.Mesh(new THREE.OctahedronGeometry(0.46, 0), coreMat));
+  coreGroup.add(new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.485, 0),
+    new THREE.MeshBasicMaterial({ color: 0x00f5ff, wireframe: true, transparent: true, opacity: 0.58 })
+  ));
 
   function torus(r, tube, col, rx, ry, rz) {
-    const m = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.58 });
-    const t = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 5, 64), m);
+    const m = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.50 });
+    const t = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 4, 72), m);
     t.rotation.set(rx, ry, rz); return t;
   }
-  const ring1 = torus(1.44, 0.011, 0x00f5ff, Math.PI/2, 0, 0);
-  const ring2 = torus(1.38, 0.008, 0x00ccff, 0.3, 0.5, 0);
-  const ring3 = torus(1.55, 0.007, 0x0077ff, 1.1, 0, -0.3);
+  const ring1 = torus(1.44, 0.010, 0x00f5ff, Math.PI/2, 0, 0);
+  const ring2 = torus(1.38, 0.007, 0x00ccff, 0.3, 0.5, 0);
+  const ring3 = torus(1.55, 0.006, 0x0077ff, 1.1, 0, -0.3);
   newsGroup.add(ring1, ring2, ring3);
 
-  /* ── RIGHT NODE: Tactical Crystal ── */
+  /* ── RIGHT NODE: Crystal — Active Sensor ── */
   const cs2Group = new THREE.Group();
   cs2Group.position.set(2.8, 0, 0);
   scene.add(cs2Group);
 
-  const octMat = glassMat('#bf5fff');
+  const octMat = new THREE.MeshPhysicalMaterial({
+    color: 0x100018, emissive: new THREE.Color(0xbf5fff), emissiveIntensity: 0.18,
+    metalness: 0.1, roughness: 0.18,
+    transmission: 0.50, thickness: 1.0, ior: 1.52,
+    envMap, envMapIntensity: 0.65,
+    transparent: true, opacity: 0.90, side: THREE.DoubleSide,
+  });
   cs2Group.add(new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), octMat));
 
-  const oWireMat = new THREE.MeshBasicMaterial({ color: 0xbf5fff, wireframe: true, transparent: true, opacity: 0.38 });
-  cs2Group.add(new THREE.Mesh(new THREE.OctahedronGeometry(1.014, 0), oWireMat));
+  const oWireMat = new THREE.MeshBasicMaterial({ color: 0xbf5fff, wireframe: true, transparent: true, opacity: 0.58 });
+  cs2Group.add(new THREE.Mesh(new THREE.OctahedronGeometry(1.013, 0), oWireMat));
 
-  const gCvs2 = document.createElement('canvas'); gCvs2.width = gCvs2.height = 256;
-  const gCtx2 = gCvs2.getContext('2d');
-  gCtx2.clearRect(0, 0, 256, 256);
-  gCtx2.strokeStyle = 'rgba(191,95,255,0.78)'; gCtx2.lineWidth = 1;
+  // Scanning plane: thin neon slab moving top→bottom through crystal
+  const scanMat = new THREE.MeshBasicMaterial({ color: 0xbf5fff, transparent: true, opacity: 0.52, side: THREE.DoubleSide, depthWrite: false });
+  const scanPlane = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.014), scanMat);
+  cs2Group.add(scanPlane);
+  const scanEchoMat = new THREE.MeshBasicMaterial({ color: 0xe0b8ff, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false });
+  const scanEcho = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.009), scanEchoMat);
+  cs2Group.add(scanEcho);
+
+  // Grid under crystal
+  const gCvs = document.createElement('canvas'); gCvs.width = gCvs.height = 256;
+  const gCtx = gCvs.getContext('2d');
+  gCtx.strokeStyle = 'rgba(191,95,255,0.55)'; gCtx.lineWidth = 1;
   for (let i = 0; i <= 256; i += 26) {
-    gCtx2.beginPath(); gCtx2.moveTo(i,0); gCtx2.lineTo(i,256); gCtx2.stroke();
-    gCtx2.beginPath(); gCtx2.moveTo(0,i); gCtx2.lineTo(256,i); gCtx2.stroke();
+    gCtx.beginPath(); gCtx.moveTo(i,0); gCtx.lineTo(i,256); gCtx.stroke();
+    gCtx.beginPath(); gCtx.moveTo(0,i); gCtx.lineTo(256,i); gCtx.stroke();
   }
   const gridPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(4.0, 4.0),
-    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(gCvs2), transparent: true, opacity: 0.2, side: THREE.DoubleSide })
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(gCvs), transparent: true, opacity: 0.16, side: THREE.DoubleSide })
   );
   gridPlane.rotation.x = -Math.PI/2; gridPlane.position.y = -1.6;
   cs2Group.add(gridPlane);
 
-  const scanRing = torus(1.68, 0.013, 0xbf5fff, Math.PI/2, 0, 0);
+  const scanRing = torus(1.68, 0.012, 0xbf5fff, Math.PI/2, 0, 0);
   cs2Group.add(scanRing);
 
-  /* ── BEAM ── */
-  const beamMat = new THREE.LineDashedMaterial({ color: 0x00f5ff, dashSize: 0.12, gapSize: 0.08, transparent: true, opacity: 0 });
-  const beam = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-1.8,0,0), new THREE.Vector3(1.8,0,0)]),
-    beamMat
-  );
-  beam.computeLineDistances(); scene.add(beam);
+  /* ── ENERGY CABLE (replaces dashed line) ── */
+  const CABLE_PTS = 52;
+  const cablePos      = new Float32Array(CABLE_PTS * 3);
+  const cableGlowPos  = new Float32Array(CABLE_PTS * 3);
+  const cableGeo      = new THREE.BufferGeometry();
+  const cableGlowGeo  = new THREE.BufferGeometry();
+  cableGeo.setAttribute('position',     new THREE.BufferAttribute(cablePos,     3));
+  cableGlowGeo.setAttribute('position', new THREE.BufferAttribute(cableGlowPos, 3));
+  const cableMat     = new THREE.LineBasicMaterial({ color: 0x00f5ff, transparent: true, opacity: 0 });
+  const cableGlowMat = new THREE.LineBasicMaterial({ color: 0x0077ff, transparent: true, opacity: 0 });
+  scene.add(new THREE.Line(cableGeo,     cableMat));
+  scene.add(new THREE.Line(cableGlowGeo, cableGlowMat));
 
   /* ── PARTICLES ── */
-  const N_PARTS = 320;
+  const N_PARTS = 260;
   const pPos = new Float32Array(N_PARTS * 3);
   const pVel = [];
   for (let i = 0; i < N_PARTS; i++) {
@@ -970,37 +1025,50 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
   }
   const pGeo = new THREE.BufferGeometry();
   pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-  const pMat = new THREE.PointsMaterial({ color: 0x00f5ff, size: 0.025, transparent: true, opacity: 0.72, sizeAttenuation: true });
+  const pMat = new THREE.PointsMaterial({ color: 0x00f5ff, size: 0.020, transparent: true, opacity: 0.50, sizeAttenuation: true });
   scene.add(new THREE.Points(pGeo, pMat));
 
-  /* ── POST-PROCESSING: UnrealBloom + SMAA + ChromaticAberration ── */
+  /* ── POST: SMAA + subtle ChromaticAberration (no bloom) ── */
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-
-  const bloom = new UnrealBloomPass(new THREE.Vector2(W, SCENE_H), 0.8, 0.5, 0.4);
-  composer.addPass(bloom);
-
   const smaa = new SMAAPass(W * renderer.getPixelRatio(), SCENE_H * renderer.getPixelRatio());
   composer.addPass(smaa);
-
   const chromaPass = new ShaderPass({
-    uniforms: { tDiffuse: { value: null }, strength: { value: 0.0022 } },
+    uniforms: { tDiffuse: { value: null }, strength: { value: 0.0015 } },
     vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader: `
       uniform sampler2D tDiffuse; uniform float strength; varying vec2 vUv;
       void main(){
         vec2 c=vUv-0.5; float d=length(c);
         vec2 dir=normalize(c)*strength*d*d;
-        float r=texture2D(tDiffuse,vUv+dir*2.2).r;
+        float r=texture2D(tDiffuse,vUv+dir*2.0).r;
         float g=texture2D(tDiffuse,vUv).g;
-        float b=texture2D(tDiffuse,vUv-dir*2.2).b;
+        float b=texture2D(tDiffuse,vUv-dir*2.0).b;
         gl_FragColor=vec4(r,g,b,texture2D(tDiffuse,vUv).a);
       }`,
   });
   chromaPass.renderToScreen = true;
   composer.addPass(chromaPass);
 
-  /* ── RAYCASTER + SPRING PHYSICS ── */
+  /* ── SVG OVERLAY for leader lines ── */
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9;overflow:visible;';
+  wrap.insertBefore(svg, hintBar);
+  function svgLine(col) {
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('stroke', col); l.setAttribute('stroke-width', '0.75');
+    l.setAttribute('stroke-dasharray', '4,3'); l.setAttribute('opacity', '0');
+    svg.appendChild(l); return l;
+  }
+  const leaderL = svgLine('#00f5ff');
+  const leaderR = svgLine('#bf5fff');
+
+  function project3D(v3) {
+    const v = v3.clone().project(camera);
+    return { x:(v.x*0.5+0.5)*W, y:(-v.y*0.5+0.5)*SCENE_H };
+  }
+
+  /* ── RAYCASTER + SPRING ── */
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const mouseWorld = new THREE.Vector3();
@@ -1014,24 +1082,28 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
   }
   function pickType() {
     ray.setFromCamera(ndc, camera);
-    const meshes = [...newsGroup.children, ...cs2Group.children].filter(m => m.isMesh);
-    const hits = ray.intersectObjects(meshes);
-    if (!hits.length) return null;
-    return hits[0].object.parent === newsGroup ? 'news' : 'cs2';
+    const nMeshes = [], cMeshes = [];
+    newsGroup.traverse(o => { if(o.isMesh) nMeshes.push(o); });
+    cs2Group.traverse(o  => { if(o.isMesh) cMeshes.push(o); });
+    const nHit = ray.intersectObjects(nMeshes);
+    const cHit = ray.intersectObjects(cMeshes);
+    if (!nHit.length && !cHit.length) return null;
+    if (!nHit.length) return 'cs2';
+    if (!cHit.length) return 'news';
+    return nHit[0].distance < cHit[0].distance ? 'news' : 'cs2';
   }
 
-  /* GSAP hover: elastic scale in/out with inertia */
   renderer.domElement.addEventListener('mousemove', e => {
     setNDC(e);
     const newHov = pickType();
     if (newHov !== hovNode) {
       hovNode = newHov;
       if (hovNode === 'news') {
-        gsap.to(newsGroup.scale, { x:1.09, y:1.09, z:1.09, duration:0.65, ease:'power2.out' });
-        gsap.to(cs2Group.scale,  { x:0.93, y:0.93, z:0.93, duration:0.45, ease:'power2.out' });
+        gsap.to(newsGroup.scale, { x:1.08, y:1.08, z:1.08, duration:0.55, ease:'power2.out' });
+        gsap.to(cs2Group.scale,  { x:0.94, y:0.94, z:0.94, duration:0.4,  ease:'power2.out' });
       } else if (hovNode === 'cs2') {
-        gsap.to(cs2Group.scale,  { x:1.09, y:1.09, z:1.09, duration:0.65, ease:'power2.out' });
-        gsap.to(newsGroup.scale, { x:0.93, y:0.93, z:0.93, duration:0.45, ease:'power2.out' });
+        gsap.to(cs2Group.scale,  { x:1.08, y:1.08, z:1.08, duration:0.55, ease:'power2.out' });
+        gsap.to(newsGroup.scale, { x:0.94, y:0.94, z:0.94, duration:0.4,  ease:'power2.out' });
       } else {
         gsap.to(newsGroup.scale, { x:1, y:1, z:1, duration:0.6, ease:'elastic.out(1,0.65)' });
         gsap.to(cs2Group.scale,  { x:1, y:1, z:1, duration:0.6, ease:'elastic.out(1,0.65)' });
@@ -1046,63 +1118,38 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
     gsap.to(cs2Group.scale,  { x:1, y:1, z:1, duration:0.6, ease:'elastic.out(1,0.65)' });
   });
 
-  /* ── GLASSMORPHISM HTML OVERLAYS ── */
-  const GLASS = [
-    'background:rgba(5,8,25,0.52)',
-    'backdrop-filter:blur(14px) saturate(1.5)',
-    '-webkit-backdrop-filter:blur(14px) saturate(1.5)',
-    'border:1px solid rgba(0,245,255,0.18)',
-    'border-radius:12px',
-  ].join(';') + ';';
+  /* ── GLASS CSS ── */
+  const GLASS = 'background:rgba(3,5,15,0.68);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3);border:1px solid rgba(0,245,255,0.13);border-radius:8px;';
 
-  /* widgets bar */
+  /* widgets */
   const widgetsBar = document.createElement('div');
-  widgetsBar.style.cssText = `position:absolute;bottom:44px;left:50%;transform:translateX(-50%);
-    display:flex;gap:14px;font-family:'Share Tech Mono',monospace;font-size:0.6rem;
-    letter-spacing:1px;pointer-events:none;z-index:5;white-space:nowrap;`;
-  [
-    { key:'api',    label:'API REQ/MIN',   val:'120',    col:'#00f5ff' },
-    { key:'conn',   label:'FASTAPI',       val:'STABLE', col:'#00ff88' },
-    { key:'models', label:'ACTIVE MODELS', val:'2',      col:'#bf5fff' },
-  ].forEach(w => {
+  widgetsBar.style.cssText = `position:absolute;bottom:44px;left:50%;transform:translateX(-50%);display:flex;gap:14px;font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:1px;pointer-events:none;z-index:5;white-space:nowrap;`;
+  [{ key:'api',label:'API REQ/MIN',val:'120',col:'#00f5ff'},{ key:'conn',label:'FASTAPI',val:'STABLE',col:'#00ff88'},{ key:'models',label:'ACTIVE MODELS',val:'2',col:'#bf5fff'}].forEach(w => {
     const d = document.createElement('div');
     d.style.cssText = GLASS + 'padding:5px 14px;text-align:center;';
-    d.innerHTML = `<div style="color:${w.col};opacity:0.48;font-size:0.52rem;letter-spacing:2px;">${w.label}</div>
-      <div style="color:${w.col};font-size:0.72rem;margin-top:1px;" data-wid="${w.key}">${w.val}</div>`;
+    d.innerHTML = `<div style="color:${w.col};opacity:0.45;font-size:0.52rem;letter-spacing:2px;">${w.label}</div><div style="color:${w.col};font-size:0.72rem;margin-top:1px;" data-wid="${w.key}">${w.val}</div>`;
     widgetsBar.appendChild(d);
   });
   wrap.insertBefore(widgetsBar, hintBar);
-  setInterval(() => {
-    const el = wrap.querySelector('[data-wid="api"]');
-    if (el) el.textContent = 95 + Math.floor(Math.random()*55);
-  }, 1100);
+  setInterval(() => { const el = wrap.querySelector('[data-wid="api"]'); if(el) el.textContent = 95+Math.floor(Math.random()*55); }, 1100);
 
   /* log panel */
   const panel = document.createElement('div');
-  panel.style.cssText = GLASS +
-    `position:absolute;top:14px;left:50%;transform:translateX(-50%);
-    padding:12px 22px;font-family:'Share Tech Mono',monospace;font-size:0.65rem;
-    line-height:1.85;color:#00f5ff;pointer-events:none;opacity:0;transition:opacity .22s;
-    z-index:10;min-width:232px;white-space:nowrap;`;
+  panel.style.cssText = GLASS + `position:absolute;top:14px;left:50%;transform:translateX(-50%);padding:12px 22px;font-family:'Share Tech Mono',monospace;font-size:0.65rem;line-height:1.85;color:#00f5ff;pointer-events:none;opacity:0;transition:opacity .22s;z-index:10;min-width:232px;white-space:nowrap;`;
   wrap.insertBefore(panel, hintBar);
 
   /* infographic card */
   const infoCard = document.createElement('div');
-  infoCard.style.cssText = GLASS +
-    `position:absolute;top:50%;transform:translateY(-50%);
-    padding:14px 18px;font-family:'Share Tech Mono',monospace;font-size:0.62rem;
-    line-height:1.9;pointer-events:none;opacity:0;transition:opacity .28s;z-index:11;width:194px;`;
+  infoCard.style.cssText = GLASS + `position:absolute;top:50%;transform:translateY(-50%);padding:14px 18px;font-family:'Share Tech Mono',monospace;font-size:0.62rem;line-height:1.9;pointer-events:none;opacity:0;transition:opacity .28s;z-index:11;width:194px;`;
   wrap.insertBefore(infoCard, hintBar);
 
   const AI_LOGS = {
-    news: ['> Initializing NLP engine...','> Scanning source credibility...','> Cross-referencing 142 outlets...','> Bias score: 12.3%','> VERDICT: 78.4% credibility ✓'],
-    cs2:  ['> Loading match replay...','> Analyzing 1,247 positions...','> Crosshair errors detected: 34','> Win probability boost: +14.2%','> Coach report ready ✓'],
+    news:['> Initializing NLP engine...','> Scanning source credibility...','> Cross-referencing 142 outlets...','> Bias score: 12.3%','> VERDICT: 78.4% credibility ✓'],
+    cs2: ['> Loading match replay...','> Analyzing 1,247 positions...','> Crosshair errors detected: 34','> Win probability boost: +14.2%','> Coach report ready ✓'],
   };
   const INFO = {
-    news: { col:'#00f5ff', brd:'rgba(0,245,255,0.28)', left:'3%',  title:'FAKE NEWS DETECTOR',
-            lines:['Stack: Python + FastAPI','Engine: OpenAI GPT-4o','Sources: 142 databases','Accuracy: 94.2%','Latency: ~1.2 s / req'] },
-    cs2:  { col:'#bf5fff', brd:'rgba(191,95,255,0.28)', left:'67%', title:'CS2 AI COACH',
-            lines:['Stack: Python + Aiogram','Engine: Groq LLaMA-3','Input: match replay data','Winrate boost: +14.2%','400+ sessions analyzed'] },
+    news:{ col:'#00f5ff', brd:'rgba(0,245,255,0.22)', left:'3%',  title:'FAKE NEWS DETECTOR', lines:['Stack: Python + FastAPI','Engine: OpenAI GPT-4o','Sources: 142 databases','Accuracy: 94.2%','Latency: ~1.2 s / req'] },
+    cs2: { col:'#bf5fff', brd:'rgba(191,95,255,0.22)', left:'67%', title:'CS2 AI COACH',        lines:['Stack: Python + Aiogram','Engine: Groq LLaMA-3','Input: match replay data','Winrate boost: +14.2%','400+ sessions analyzed'] },
   };
 
   let activeNode = null, logTimer = null, logIdx = 0;
@@ -1112,80 +1159,102 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
     activeNode = type;
     const info = INFO[type];
     panel.style.borderColor = info.brd; panel.style.color = info.col;
-    panel.style.left = type === 'news' ? '28%' : '72%'; panel.style.opacity = '1';
+    panel.style.left = type==='news' ? '28%' : '72%'; panel.style.opacity = '1';
     logIdx = 0; clearInterval(logTimer);
-    function step(){ panel.innerHTML=AI_LOGS[type].slice(0,logIdx+1).join('<br>'); if(logIdx<AI_LOGS[type].length-1)logIdx++; }
+    function step(){ panel.innerHTML=AI_LOGS[type].slice(0,logIdx+1).join('<br>'); if(logIdx<AI_LOGS[type].length-1) logIdx++; }
     step(); logTimer = setInterval(step, 510);
     infoCard.style.borderColor = info.brd; infoCard.style.color = info.col;
     infoCard.style.left = info.left; infoCard.style.opacity = '1';
-    infoCard.innerHTML = `<div style="opacity:.52;font-size:.55rem;letter-spacing:2px;margin-bottom:8px;">// ${info.title}</div>`+
-      info.lines.map(l=>`<div>▸ ${l}</div>`).join('');
+    infoCard.innerHTML = `<div style="opacity:.48;font-size:.55rem;letter-spacing:2px;margin-bottom:8px;">// ${info.title}</div>`+info.lines.map(l=>`<div>▸ ${l}</div>`).join('');
+    leaderL.setAttribute('opacity', type==='news' ? '0.75' : '0');
+    leaderR.setAttribute('opacity', type==='cs2'  ? '0.75' : '0');
   }
   function closePanel() {
     activeNode = null; clearInterval(logTimer);
     panel.style.opacity = '0'; infoCard.style.opacity = '0';
+    leaderL.setAttribute('opacity','0'); leaderR.setAttribute('opacity','0');
   }
   renderer.domElement.addEventListener('click', e => { setNDC(e); const t=pickType(); if(t) openPanel(t); else closePanel(); });
 
-  /* ── INTRO ANIMATION (GSAP elastic pop-in) ── */
-  newsGroup.scale.setScalar(0.001);
-  cs2Group.scale.setScalar(0.001);
-  gsap.to(newsGroup.scale, { x:1, y:1, z:1, duration:1.6, delay:0.5,  ease:'elastic.out(1,0.5)' });
-  gsap.to(cs2Group.scale,  { x:1, y:1, z:1, duration:1.6, delay:0.85, ease:'elastic.out(1,0.5)' });
+  /* ── INTRO ── */
+  newsGroup.scale.setScalar(0.001); cs2Group.scale.setScalar(0.001);
+  gsap.to(newsGroup.scale, { x:1,y:1,z:1, duration:1.5, delay:0.4,  ease:'elastic.out(1,0.5)' });
+  gsap.to(cs2Group.scale,  { x:1,y:1,z:1, duration:1.5, delay:0.75, ease:'elastic.out(1,0.5)' });
 
   /* ── ANIMATION LOOP ── */
   const clock = new THREE.Clock();
   let autoN = 0, autoC = 0;
+  const nWP = new THREE.Vector3(), cWP = new THREE.Vector3();
 
   (function loop() {
     requestAnimationFrame(loop);
     const dt = clock.getDelta(), t = clock.getElapsedTime();
     const hn = hovNode==='news', hc = hovNode==='cs2', any = hn||hc;
 
-    /* spring physics: mouse world → smooth tilt with inertia */
-    const tx=(mouseWorld.y/3)*0.24, ty=(mouseWorld.x/5)*0.22;
+    /* spring tilt */
+    const tx=(mouseWorld.y/3)*0.22, ty=(mouseWorld.x/5)*0.20;
     spring.vx+=(tx-spring.x)*0.06; spring.vx*=0.82;
     spring.vy+=(ty-spring.y)*0.06; spring.vy*=0.82;
     spring.x+=spring.vx; spring.y+=spring.vy;
 
-    /* LEFT — sphere scanner */
-    autoN += dt*(hn ? 1.5 : 0.28);
+    /* LEFT: sphere */
+    autoN += dt*(hn ? 1.4 : 0.26);
     newsGroup.rotation.y = autoN + spring.y;
-    newsGroup.rotation.x = Math.sin(t*0.42)*0.08 + spring.x;
-    ring1.rotation.z += dt*(hn ? 2.0  : 0.62);
-    ring2.rotation.x += dt*(hn ? 1.55 : 0.40);
-    ring3.rotation.y += dt*(hn ? 1.8  : 0.52);
-    sphereMat.emissiveIntensity = L(sphereMat.emissiveIntensity, hn ? 0.65 : 0.18, 0.06);
-    sWireMat.opacity = L(sWireMat.opacity, hn ? 0.72 : 0.28, 0.07);
+    newsGroup.rotation.x = Math.sin(t*0.42)*0.07 + spring.x;
+    ring1.rotation.z += dt*(hn ? 1.8 : 0.55);
+    ring2.rotation.x += dt*(hn ? 1.4 : 0.38);
+    ring3.rotation.y += dt*(hn ? 1.6 : 0.48);
+    coreGroup.rotation.y -= dt*0.85;
+    coreGroup.rotation.x += dt*0.52;
+    sphereMat.emissiveIntensity = L(sphereMat.emissiveIntensity, hn ? 0.48 : 0.14, 0.06);
+    sWireMat.opacity = L(sWireMat.opacity, hn ? 0.55 : 0.20, 0.07);
 
-    /* RIGHT — tactical crystal */
-    autoC -= dt*(hc ? 1.5 : 0.28);
+    /* RIGHT: crystal */
+    autoC -= dt*(hc ? 1.4 : 0.26);
     cs2Group.rotation.y = autoC - spring.y;
-    cs2Group.rotation.x = Math.sin(t*0.5+1)*0.07 - spring.x;
-    scanRing.rotation.z += dt*(hc ? 2.5 : 0.72);
-    gridPlane.material.opacity = L(gridPlane.material.opacity, hc ? 0.62 : 0.2, 0.05);
-    octMat.emissiveIntensity = L(octMat.emissiveIntensity, hc ? 0.65 : 0.18, 0.06);
-    oWireMat.opacity = L(oWireMat.opacity, hc ? 0.82 : 0.38, 0.07);
+    cs2Group.rotation.x = Math.sin(t*0.5+1)*0.06 - spring.x;
+    scanRing.rotation.z += dt*(hc ? 2.2 : 0.65);
+    gridPlane.material.opacity = L(gridPlane.material.opacity, hc ? 0.45 : 0.16, 0.05);
+    octMat.emissiveIntensity = L(octMat.emissiveIntensity, hc ? 0.50 : 0.18, 0.06);
+    oWireMat.opacity = L(oWireMat.opacity, hc ? 0.82 : 0.58, 0.07);
+
+    /* Scanning line: oscillates top→bottom, echo trails behind */
+    const sY = Math.sin(t * 0.85) * 1.05;
+    scanPlane.position.y  = sY;
+    scanEcho.position.y   = Math.sin(t * 0.85 - 0.25) * 1.05;
+    scanMat.opacity    = L(scanMat.opacity,    hc ? 0.68 : 0.40, 0.06);
+    scanEchoMat.opacity = L(scanEchoMat.opacity, hc ? 0.28 : 0.12, 0.06);
 
     /* spotlight */
     spotL.target.position.setX(L(spotL.target.position.x, hn ? -2.8 : (hc ? 2.8 : 0), 0.08));
     spotL.target.updateMatrixWorld();
     spotL.color.setHex(hn ? 0x00f5ff : 0xbf5fff);
-    spotL.intensity = L(spotL.intensity, any ? 10 : 0, 0.06);
+    spotL.intensity = L(spotL.intensity, any ? 7 : 0, 0.06);
 
-    /* beam + bloom */
-    beamMat.opacity = L(beamMat.opacity, any ? 0.7 : 0, 0.06);
-    bloom.strength  = L(bloom.strength,  any ? 1.0 : 0.8, 0.05);
-
-    /* chromatic aberration: boost on hover */
-    chromaPass.uniforms.strength.value = L(chromaPass.uniforms.strength.value, any ? 0.0042 : 0.0022, 0.04);
+    /* energy cable: traveling wave + per-frame jitter */
+    const cA = any ? 0.88 : 0.32;
+    cableMat.opacity     = L(cableMat.opacity,    cA, 0.06);
+    cableGlowMat.opacity = L(cableGlowMat.opacity, cA*0.38, 0.06);
+    cableMat.color.setHex(hc ? 0xbf5fff : 0x00f5ff);
+    const pulse = Math.sin(t*5)*0.5+0.5;
+    for (let i = 0; i < CABLE_PTS; i++) {
+      const ti = i/(CABLE_PTS-1);
+      const x  = THREE.MathUtils.lerp(-1.75, 1.75, ti);
+      const wave    = Math.sin(ti*Math.PI*3.5 - t*5.5) * 0.055 * pulse;
+      const jitter  = (Math.random()-0.5) * 0.010 * (any ? 1.2 : 0.35);
+      const arc     = Math.sin(ti*Math.PI)*0.10;
+      cablePos[i*3]=x;     cablePos[i*3+1]=wave+jitter;  cablePos[i*3+2]=arc;
+      cableGlowPos[i*3]=x; cableGlowPos[i*3+1]=wave+jitter*0.4; cableGlowPos[i*3+2]=arc+0.04;
+    }
+    cableGeo.attributes.position.needsUpdate = true;
+    cableGlowGeo.attributes.position.needsUpdate = true;
 
     /* particles */
     const pa = pGeo.attributes.position.array;
     for (let i = 0; i < N_PARTS; i++) {
       const ix=i*3, iy=ix+1, iz=ix+2;
       const dx=mouseWorld.x-pa[ix], dy=mouseWorld.y-pa[iy], d2=dx*dx+dy*dy+0.01;
-      if(d2<9){ pVel[i].x+=dx/d2*0.00018; pVel[i].y+=dy/d2*0.00018; }
+      if(d2<9){ pVel[i].x+=dx/d2*0.00015; pVel[i].y+=dy/d2*0.00015; }
       pVel[i].x*=0.984; pVel[i].y*=0.984; pVel[i].z*=0.984;
       pa[ix]+=pVel[i].x; pa[iy]+=pVel[i].y; pa[iz]+=pVel[i].z;
       if(Math.abs(pa[ix])>5.8) pVel[i].x*=-0.7;
@@ -1194,6 +1263,25 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
     }
     pGeo.attributes.position.needsUpdate = true;
     pMat.color.setHex(hc ? 0xbf5fff : 0x00f5ff);
+
+    /* leader lines: project 3D node centers → screen coords, wire to infoCard */
+    if (activeNode) {
+      newsGroup.getWorldPosition(nWP);
+      cs2Group.getWorldPosition(cWP);
+      const wrapR = wrap.getBoundingClientRect();
+      const cardR = infoCard.getBoundingClientRect();
+      const cardCX = cardR.left - wrapR.left + cardR.width*0.5;
+      const cardCY = cardR.top  - wrapR.top  + cardR.height*0.5;
+      if (activeNode === 'news') {
+        const s = project3D(nWP);
+        leaderL.setAttribute('x1', s.x); leaderL.setAttribute('y1', s.y);
+        leaderL.setAttribute('x2', cardCX + cardR.width*0.5); leaderL.setAttribute('y2', cardCY);
+      } else {
+        const s = project3D(cWP);
+        leaderR.setAttribute('x1', s.x); leaderR.setAttribute('y1', s.y);
+        leaderR.setAttribute('x2', cardCX - cardR.width*0.5); leaderR.setAttribute('y2', cardCY);
+      }
+    }
 
     composer.render();
   })();
@@ -1205,7 +1293,6 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
     composer.setSize(W, SCENE_H);
     camera.aspect = W / SCENE_H;
     camera.updateProjectionMatrix();
-    bloom.resolution.set(W, SCENE_H);
     smaa.setSize(W * renderer.getPixelRatio(), SCENE_H * renderer.getPixelRatio());
   });
 })();
