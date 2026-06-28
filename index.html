@@ -857,11 +857,11 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   wrap.insertBefore(renderer.domElement, hintBar);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x020408);
+  scene.background = new THREE.Color(0x05050a); /* matches --bg page color → canvas blends in */
   const camera = new THREE.PerspectiveCamera(55, W / CANVAS_H, 0.1, 80);
-  /* shift camera up so scene centre aligns with visible panel centre (not full canvas centre) */
-  const camYOffset = (OVERFLOW / CANVAS_H) * 5.8 * Math.tan((55 / 2) * Math.PI / 180);
-  camera.position.set(0, camYOffset, 5.8);
+  /* camera slightly below origin so scene centre projects to panel centre (250px), not canvas centre (290px) */
+  const camYOffset = (OVERFLOW / 2) / (CANVAS_H / 2) * 5.8 * Math.tan(27.5 * Math.PI / 180);
+  camera.position.set(0, -camYOffset, 5.8);
 
   /* ── Lights — needed for Phong glass shading ── */
   scene.add(new THREE.AmbientLight(0x112233, 2.5));
@@ -880,11 +880,12 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     const mesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
       color: col, transparent: true, opacity: op,
       side: THREE.DoubleSide, depthWrite: false,
-      shininess: 100,
-      specular: new THREE.Color(0x88ddff),
-      emissive: new THREE.Color(col).multiplyScalar(0.05),
+      flatShading: true,
+      shininess: 220,
+      specular: new THREE.Color(0xffffff),
+      emissive: new THREE.Color(col).multiplyScalar(0.12),
     }));
-    mesh.scale.setScalar(0.991);
+    mesh.scale.setScalar(0.992);
     return mesh;
   }
 
@@ -896,9 +897,9 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   const nOuter = eLine(new THREE.IcosahedronGeometry(2.0, 1),  0x00aacc, 0.78);
   const nMid   = eLine(new THREE.OctahedronGeometry(1.38, 0),  0x0088aa, 0.50);
   const nCore  = eLine(new THREE.IcosahedronGeometry(0.65, 0), 0x66ddee, 0.95);
-  const nFaceO = gFace(new THREE.IcosahedronGeometry(2.0, 1),  0x003344, 0.13);
-  const nFaceM = gFace(new THREE.OctahedronGeometry(1.38, 0),  0x004455, 0.17);
-  const nFaceC = gFace(new THREE.IcosahedronGeometry(0.65, 0), 0x0099bb, 0.21);
+  const nFaceO = gFace(new THREE.IcosahedronGeometry(2.0, 1),  0x003d5c, 0.32);
+  const nFaceM = gFace(new THREE.OctahedronGeometry(1.38, 0),  0x005577, 0.38);
+  const nFaceC = gFace(new THREE.IcosahedronGeometry(0.65, 0), 0x00aacc, 0.44);
   newsGroup.add(nOuter, nMid, nCore, nFaceO, nFaceM, nFaceC);
 
   /* particle streams */
@@ -951,9 +952,9 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   const cOuter = eLine(new THREE.DodecahedronGeometry(2.0, 0), 0x8855ff, 0.80);
   const cMid   = eLine(new THREE.IcosahedronGeometry(1.35, 0), 0xaa77ff, 0.55);
   const cCore  = eLine(new THREE.OctahedronGeometry(0.65, 0),  0xeeddff, 0.95);
-  const cFaceO = gFace(new THREE.DodecahedronGeometry(2.0, 0), 0x1a0033, 0.13);
-  const cFaceM = gFace(new THREE.IcosahedronGeometry(1.35, 0), 0x2a0044, 0.17);
-  const cFaceC = gFace(new THREE.OctahedronGeometry(0.65, 0),  0x6633cc, 0.21);
+  const cFaceO = gFace(new THREE.DodecahedronGeometry(2.0, 0), 0x2a0055, 0.32);
+  const cFaceM = gFace(new THREE.IcosahedronGeometry(1.35, 0), 0x3d0066, 0.38);
+  const cFaceC = gFace(new THREE.OctahedronGeometry(0.65, 0),  0x7744dd, 0.44);
   cs2Group.add(cOuter, cMid, cCore, cFaceO, cFaceM, cFaceC);
 
   function mkRing(r, tube, col, op, rx, ry, rz) {
