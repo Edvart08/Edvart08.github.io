@@ -827,8 +827,8 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   document.getElementById('nodeCanvas')?.remove();
 
   const SCENE_H  = 500;   /* visible panel height */
-  const OVERFLOW = 90;    /* canvas px above+below → crystals overflow panel borders */
-  const CANVAS_H = SCENE_H + OVERFLOW * 2;
+  const OVERFLOW = 80;    /* canvas extends ONLY below panel — no upward cover of heading */
+  const CANVAS_H = SCENE_H + OVERFLOW;
   let W = wrap.clientWidth;
   const L = THREE.MathUtils.lerp;
   const hintBar = wrap.querySelector('.scanner-hint-bar');
@@ -852,14 +852,16 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   renderer.toneMapping = THREE.ReinhardToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  /* canvas is absolutely positioned so it extends OVERFLOW px above the panel top */
-  renderer.domElement.style.cssText = `position:absolute;top:-${OVERFLOW}px;left:0;width:100%;height:${CANVAS_H}px;cursor:crosshair;z-index:2;border-radius:14px;`;
+  /* canvas starts at panel top, extends OVERFLOW px below — heading stays uncovered */
+  renderer.domElement.style.cssText = `position:absolute;top:0;left:0;width:100%;height:${CANVAS_H}px;cursor:crosshair;z-index:2;border-radius:14px;`;
   wrap.insertBefore(renderer.domElement, hintBar);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x020408);
   const camera = new THREE.PerspectiveCamera(55, W / CANVAS_H, 0.1, 80);
-  camera.position.set(0, 0, 5.8);
+  /* shift camera up so scene centre aligns with visible panel centre (not full canvas centre) */
+  const camYOffset = (OVERFLOW / CANVAS_H) * 5.8 * Math.tan((55 / 2) * Math.PI / 180);
+  camera.position.set(0, camYOffset, 5.8);
 
   /* ── Lights — needed for Phong glass shading ── */
   scene.add(new THREE.AmbientLight(0x112233, 2.5));
@@ -1028,10 +1030,10 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   const leaderL = mkSvgLine('#00f5ff');
   const leaderR = mkSvgLine('#8855ff');
 
-  /* proj: 3D world → wrap-relative px (canvas sits at top:-OVERFLOW) */
+  /* proj: 3D world → canvas px (canvas top:0, extends OVERFLOW below panel) */
   function proj(v3) {
     const v = v3.clone().project(camera);
-    return { x: (v.x*0.5+0.5)*W, y: (-v.y*0.5+0.5)*CANVAS_H - OVERFLOW };
+    return { x: (v.x*0.5+0.5)*W, y: (-v.y*0.5+0.5)*CANVAS_H };
   }
 
   /* ── INTERACTION ── */
@@ -1047,7 +1049,7 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
   }
   function pickType() {
-    const mx=(ndc.x*0.5+0.5)*W, my=(-ndc.y*0.5+0.5)*CANVAS_H-OVERFLOW;
+    const mx=(ndc.x*0.5+0.5)*W, my=(-ndc.y*0.5+0.5)*CANVAS_H;
     const ns=proj(newsGroup.position), cs=proj(cs2Group.position);
     const dn=Math.hypot(mx-ns.x,my-ns.y), dc=Math.hypot(mx-cs.x,my-cs.y);
     const thr=W*0.15;
