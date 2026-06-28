@@ -195,7 +195,7 @@
 
     /* ── Node Scanner ── */
     .scanner-wrap { margin-bottom: 60px; border: 1px solid rgba(0,245,255,0.08); border-radius: 14px; background: rgba(0,0,0,0.6); overflow: hidden; }
-    #nodeCanvas { display: block; width: 100%; height: 300px; cursor: none; }
+    #nodeCanvas { display: block; width: 100%; height: 500px; cursor: none; }
     .scanner-hint-bar { text-align: center; padding: 10px 20px; border-top: 1px solid rgba(0,245,255,0.06); font-family: 'Share Tech Mono', monospace; font-size: 0.64rem; color: var(--dim); letter-spacing: 3px; }
 
     /* Logo pulse dot */
@@ -826,7 +826,7 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   if (!wrap) return;
   document.getElementById('nodeCanvas')?.remove();
 
-  const SCENE_H = 440;
+  const SCENE_H = 500;
   let W = wrap.clientWidth;
   const L = THREE.MathUtils.lerp;
   const hintBar = wrap.querySelector('.scanner-hint-bar');
@@ -839,13 +839,13 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
   renderer.toneMapping = THREE.ReinhardToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.domElement.style.cssText = `display:block;width:100%;height:${SCENE_H}px;cursor:crosshair;border-radius:13px 13px 0 0;`;
+  renderer.domElement.style.cssText = `display:block;width:100%;height:${SCENE_H}px;cursor:crosshair;border-radius:13px 13px 0 0;position:relative;z-index:1;`;
   wrap.insertBefore(renderer.domElement, hintBar);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x020408);
-  const camera = new THREE.PerspectiveCamera(50, W / SCENE_H, 0.1, 80);
-  camera.position.set(0, 0.5, 17.0);
+  const camera = new THREE.PerspectiveCamera(55, W / SCENE_H, 0.1, 80);
+  camera.position.set(0, 0.2, 5.5);
 
   /* edge wireframe helper */
   function eLine(geo, col, op) {
@@ -865,16 +865,15 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 
   /* ── LEFT NODE: Crystal Diamond — Fake News Detector ── */
   const newsGroup = new THREE.Group();
-  newsGroup.position.set(-4.5, 0.0, 0);
+  newsGroup.position.set(-2.3, 0.0, 0);
   scene.add(newsGroup);
 
-  const nOuter = eLine(new THREE.IcosahedronGeometry(3.0, 1), 0x00aacc, 0.80);
-  const nMid   = eLine(new THREE.OctahedronGeometry(2.1, 0),  0x0088aa, 0.52);
-  const nCore  = eLine(new THREE.IcosahedronGeometry(1.0, 0), 0x66ddee, 0.95);
-  /* Glass faces — tinted fills using normal blending, clearly visible */
-  const nFaceO = gFace(new THREE.IcosahedronGeometry(3.0, 1), 0x003344, 0.15);
-  const nFaceM = gFace(new THREE.OctahedronGeometry(2.1, 0),  0x004455, 0.19);
-  const nFaceC = gFace(new THREE.IcosahedronGeometry(1.0, 0), 0x0099bb, 0.22);
+  const nOuter = eLine(new THREE.IcosahedronGeometry(1.95, 1), 0x00aacc, 0.80);
+  const nMid   = eLine(new THREE.OctahedronGeometry(1.35, 0),  0x0088aa, 0.52);
+  const nCore  = eLine(new THREE.IcosahedronGeometry(0.62, 0), 0x66ddee, 0.95);
+  const nFaceO = gFace(new THREE.IcosahedronGeometry(1.95, 1), 0x003344, 0.14);
+  const nFaceM = gFace(new THREE.OctahedronGeometry(1.35, 0),  0x004455, 0.18);
+  const nFaceC = gFace(new THREE.IcosahedronGeometry(0.62, 0), 0x0099bb, 0.22);
   newsGroup.add(nOuter, nMid, nCore, nFaceO, nFaceM, nFaceC);
 
   /* FAKE stream — magenta/pink particles flowing down-left */
@@ -888,7 +887,7 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     const tmp = Math.abs(dir.y) < 0.8 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
     const perpA = new THREE.Vector3().crossVectors(dir, tmp).normalize();
     const perpB = new THREE.Vector3().crossVectors(dir, perpA).normalize();
-    const MAX_T = 7.5;
+    const MAX_T = 4.8;
 
     const pos = new Float32Array(N_STREAM * 3);
     const vel = [];
@@ -931,16 +930,15 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
 
   /* ── RIGHT NODE: Star Crystal — CS2 AI Coach ── */
   const cs2Group = new THREE.Group();
-  cs2Group.position.set(4.5, 0.0, 0);
+  cs2Group.position.set(2.3, 0.0, 0);
   scene.add(cs2Group);
 
-  const cOuter = eLine(new THREE.IcosahedronGeometry(3.0, 1), 0x8855ff, 0.82);
-  const cMid   = eLine(new THREE.OctahedronGeometry(2.1, 0),  0xaa77ff, 0.57);
-  const cCore  = eLine(new THREE.IcosahedronGeometry(1.0, 0), 0xeeddff, 0.95);
-  /* Glass faces for right node */
-  const cFaceO = gFace(new THREE.IcosahedronGeometry(3.0, 1), 0x220033, 0.15);
-  const cFaceM = gFace(new THREE.OctahedronGeometry(2.1, 0),  0x331155, 0.19);
-  const cFaceC = gFace(new THREE.IcosahedronGeometry(1.0, 0), 0x7744cc, 0.22);
+  const cOuter = eLine(new THREE.IcosahedronGeometry(1.95, 1), 0x8855ff, 0.82);
+  const cMid   = eLine(new THREE.OctahedronGeometry(1.35, 0),  0xaa77ff, 0.57);
+  const cCore  = eLine(new THREE.IcosahedronGeometry(0.62, 0), 0xeeddff, 0.95);
+  const cFaceO = gFace(new THREE.IcosahedronGeometry(1.95, 1), 0x220033, 0.14);
+  const cFaceM = gFace(new THREE.OctahedronGeometry(1.35, 0),  0x331155, 0.18);
+  const cFaceC = gFace(new THREE.IcosahedronGeometry(0.62, 0), 0x7744cc, 0.22);
   cs2Group.add(cOuter, cMid, cCore, cFaceO, cFaceM, cFaceC);
 
   /* Orbital rings */
@@ -951,8 +949,8 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     );
     m.rotation.set(rx, ry, rz); return m;
   }
-  const cRing1 = mkRing(3.85, 0.012, 0x8855ff, 0.45, Math.PI/2, 0, 0);
-  const cRing2 = mkRing(4.25, 0.009, 0x6633dd, 0.30, 0.38, 0.18, 0);
+  const cRing1 = mkRing(2.45, 0.010, 0x8855ff, 0.45, Math.PI/2, 0, 0);
+  const cRing2 = mkRing(2.72, 0.008, 0x6633dd, 0.30, 0.38, 0.18, 0);
   cs2Group.add(cRing1, cRing2);
 
   /* CS2 map minimap panels — canvas textures on floating planes */
@@ -978,11 +976,11 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     });
     return new THREE.CanvasTexture(c);
   }
-  const map1 = new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.80,side:THREE.DoubleSide}));
-  map1.position.set(-4.5, 2.6, -0.5); map1.rotation.y = 0.28;
+  const map1 = new THREE.Mesh(new THREE.PlaneGeometry(1.1,1.1), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.82,side:THREE.DoubleSide}));
+  map1.position.set(2.2, 1.55, 0.1); map1.rotation.y = -0.28;
   cs2Group.add(map1);
-  const map2 = new THREE.Mesh(new THREE.PlaneGeometry(1.25,1.25), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.65,side:THREE.DoubleSide}));
-  map2.position.set(-4.2,-2.8,-0.40); map2.rotation.y = 0.22;
+  const map2 = new THREE.Mesh(new THREE.PlaneGeometry(1.0,1.0), new THREE.MeshBasicMaterial({map:mkMap(),transparent:true,opacity:0.68,side:THREE.DoubleSide}));
+  map2.position.set(2.1,-1.45, 0.08); map2.rotation.y = -0.24;
   cs2Group.add(map2);
 
   /* Chart panel */
@@ -1004,8 +1002,8 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     ctx.stroke();
     return new THREE.CanvasTexture(c);
   }
-  const chartMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.0,1.0), new THREE.MeshBasicMaterial({map:mkChart(),transparent:true,opacity:0.80,side:THREE.DoubleSide}));
-  chartMesh.position.set(4.6, 2.0, -0.3); chartMesh.rotation.y = -0.22;
+  const chartMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6,0.80), new THREE.MeshBasicMaterial({map:mkChart(),transparent:true,opacity:0.82,side:THREE.DoubleSide}));
+  chartMesh.position.set(2.4, 0.1, 0.12); chartMesh.rotation.y = -0.20;
   cs2Group.add(chartMesh);
 
   /* ── POST: Bloom (precise) + SMAA + ChromaticAberration ── */
@@ -1226,8 +1224,8 @@ import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
     }
 
     /* Float FAKE/FACT labels at stream tips */
-    fakeEndW.set(fakeDir.x*7.5, fakeDir.y*7.5, fakeDir.z*7.5).applyMatrix4(newsGroup.matrixWorld);
-    factEndW.set(factDir.x*6.5, factDir.y*6.5, factDir.z*6.5).applyMatrix4(newsGroup.matrixWorld);
+    fakeEndW.set(fakeDir.x*4.2, fakeDir.y*4.2, fakeDir.z*4.2).applyMatrix4(newsGroup.matrixWorld);
+    factEndW.set(factDir.x*3.7, factDir.y*3.7, factDir.z*3.7).applyMatrix4(newsGroup.matrixWorld);
     const fs=proj(fakeEndW), fts=proj(factEndW);
     fakeLabel.style.left=fs.x+'px';  fakeLabel.style.top=fs.y+'px';
     factLabel.style.left=fts.x+'px'; factLabel.style.top=fts.y+'px';
