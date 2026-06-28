@@ -10,6 +10,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+
   <style>
     :root {
       --bg:     #05050a;
@@ -722,146 +731,7 @@ document.querySelectorAll('.btn').forEach(btn=>{
   btn.addEventListener('mouseenter',()=>{ btn.style.transition='transform .1s'; });
 });
 
-/* ════════════════ 3D Node Scanner ════════════════ */
-(function(){
-  const cnv = document.getElementById('nodeCanvas');
-  if (!cnv) return;
-  const c = cnv.getContext('2d');
-  let W, H;
-
-  function resize() { W = cnv.width = cnv.offsetWidth; H = cnv.height = 300; }
-  resize(); window.addEventListener('resize', () => { resize(); });
-
-  // Icosahedron geometry
-  const PHI = (1+Math.sqrt(5))/2, NRM = Math.sqrt(1+PHI*PHI);
-  const IV = [[-1,PHI,0],[1,PHI,0],[-1,-PHI,0],[1,-PHI,0],[0,-1,PHI],[0,1,PHI],[0,-1,-PHI],[0,1,-PHI],[PHI,0,-1],[PHI,0,1],[-PHI,0,-1],[-PHI,0,1]].map(v=>v.map(x=>x/NRM));
-  const IE = [[0,1],[0,5],[0,7],[0,10],[0,11],[1,5],[1,7],[1,8],[1,9],[2,3],[2,4],[2,6],[2,10],[2,11],[3,4],[3,6],[3,8],[3,9],[4,5],[4,9],[4,11],[5,9],[5,11],[6,7],[6,8],[6,10],[7,8],[7,10],[8,9],[10,11]];
-
-  // Octahedron geometry
-  const OV = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-  const OE = [[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,4],[2,5],[3,4],[3,5]];
-
-  // State
-  let rotY=0, rotX=0.3, scanL=0, scanR=0, mxR=-1, myR=-1;
-
-  // 3D math
-  const rY = ([x,y,z],a) => [x*Math.cos(a)+z*Math.sin(a), y, -x*Math.sin(a)+z*Math.cos(a)];
-  const rX = ([x,y,z],a) => [x, y*Math.cos(a)-z*Math.sin(a), y*Math.sin(a)+z*Math.cos(a)];
-  const prj = ([x,y,z], s, ox, oy) => { const f=3/(3+z); return [ox+x*s*f, oy-y*s*f]; };
-  const xform = (verts, ry, rx) => verts.map(v => rX(rY(v,ry),rx));
-
-  function hit(pts, mx, my, s) {
-    if (mx<0) return false;
-    return pts.some(p => Math.hypot(p[0]-mx, p[1]-my) < s*1.4);
-  }
-
-  function drawShape(pts, edges, col, alpha, glow) {
-    for (const [a,b] of edges) {
-      c.beginPath();
-      c.strokeStyle = `rgba(${col},${alpha})`;
-      c.lineWidth = 0.8 + glow*0.7;
-      c.moveTo(pts[a][0],pts[a][1]); c.lineTo(pts[b][0],pts[b][1]);
-      c.stroke();
-    }
-    for (const p of pts) {
-      c.beginPath(); c.arc(p[0],p[1],1.5+glow*1.5,0,Math.PI*2);
-      c.fillStyle=`rgba(${col},${0.7+glow*0.3})`; c.fill();
-    }
-  }
-
-  function drawGlow(cx,cy,s,col,a) {
-    const g=c.createRadialGradient(cx,cy,0,cx,cy,s*2);
-    g.addColorStop(0,`rgba(${col},${a})`); g.addColorStop(1,'transparent');
-    c.fillStyle=g; c.fillRect(cx-s*2.5,cy-s*2.5,s*5,s*5);
-  }
-
-  function drawBeams(cx,cy,s,col,prog,n,spd) {
-    const t=Date.now()/1000;
-    for(let i=0;i<n;i++){
-      const a=(i/n)*Math.PI*2+t*spd;
-      c.beginPath(); c.moveTo(cx,cy);
-      c.lineTo(cx+Math.cos(a)*s*1.7*prog, cy+Math.sin(a)*s*1.7*prog);
-      c.strokeStyle=`rgba(${col},${0.22*prog})`; c.lineWidth=1; c.stroke();
-    }
-  }
-
-  function drawGrid(cx,cy,prog,col) {
-    if(prog<0.2) return;
-    c.save(); c.globalAlpha=(prog-0.2)*1.3;
-    const gs=18,gw=6,gh=5,ox=cx-gw*gs/2,oy=cy-gh*gs/2;
-    c.strokeStyle=`rgba(${col},0.4)`; c.lineWidth=0.5;
-    for(let i=0;i<=gw;i++){c.beginPath();c.moveTo(ox+i*gs,oy);c.lineTo(ox+i*gs,oy+gh*gs);c.stroke();}
-    for(let j=0;j<=gh;j++){c.beginPath();c.moveTo(ox,oy+j*gs);c.lineTo(ox+gw*gs,oy+j*gs);c.stroke();}
-    c.restore();
-  }
-
-  function frame() {
-    c.clearRect(0,0,W,H);
-    rotY+=0.009;
-
-    const s  = Math.min(W*0.13, 78);
-    const lx = W*0.28, rx = W*0.72, cy = H*0.5;
-
-    const iProj = xform(IV,rotY,rotX).map(v=>prj(v,s,lx,cy));
-    const oProj = xform(OV,-rotY*0.7,rotX*0.5).map(v=>prj(v,s,rx,cy));
-
-    scanL += (hit(iProj,mxR,myR,s)?1:-1)*0.045; scanL=Math.max(0,Math.min(1,scanL));
-    scanR += (hit(oProj,mxR,myR,s)?1:-1)*0.045; scanR=Math.max(0,Math.min(1,scanR));
-
-    // Glow halos
-    drawGlow(lx,cy,s,'0,245,255',0.05+scanL*0.12);
-    drawGlow(rx,cy,s,'191,95,255',0.05+scanR*0.12);
-
-    // FX
-    drawBeams(lx,cy,s,'0,245,255',scanL,14,1.3);
-    drawBeams(rx,cy,s,'191,95,255',scanR,8,-0.8);
-    drawGrid(rx,cy,scanR,'191,95,255');
-
-    // Data scan particles (left node only)
-    if (scanL>0) {
-      const t=Date.now()/1000;
-      for(let i=0;i<6;i++){
-        const angle=(i/6)*Math.PI*2+t*2, d=s*(0.4+Math.sin(t*3+i)*0.3)*scanL;
-        c.beginPath(); c.arc(lx+Math.cos(angle)*d,cy+Math.sin(angle)*d,1.5,0,Math.PI*2);
-        c.fillStyle=`rgba(0,245,255,${scanL*0.6})`; c.fill();
-      }
-    }
-
-    // Connection beam
-    const ca=Math.max(scanL,scanR)*0.28;
-    if(ca>0){
-      const grad=c.createLinearGradient(lx,cy,rx,cy);
-      grad.addColorStop(0,`rgba(0,245,255,${ca})`);
-      grad.addColorStop(1,`rgba(191,95,255,${ca})`);
-      c.save(); c.setLineDash([5,12]);
-      c.beginPath(); c.moveTo(lx,cy); c.lineTo(rx,cy);
-      c.strokeStyle=grad; c.lineWidth=1; c.stroke(); c.restore();
-    }
-
-    // Draw nodes
-    drawShape(iProj,IE,'0,245,255',0.38+scanL*0.42,scanL);
-    drawShape(oProj,OE,'191,95,255',0.38+scanR*0.42,scanR);
-
-    // Canvas labels
-    const fs=Math.min(10,W*0.018);
-    c.font=`${fs}px "Share Tech Mono",monospace`; c.textAlign='center';
-    c.fillStyle=`rgba(0,245,255,${0.4+scanL*0.6})`;
-    c.fillText(scanL>0.5?'// SCANNING DATA...':'FAKE NEWS DETECTOR', lx, cy+s+22);
-    c.fillStyle=`rgba(191,95,255,${0.4+scanR*0.6})`;
-    c.fillText(scanR>0.5?'// ANALYZING GAMEPLAY...':'CS2 AI COACH', rx, cy+s+22);
-
-    requestAnimationFrame(frame);
-  }
-
-  cnv.addEventListener('mousemove', e => {
-    const r=cnv.getBoundingClientRect();
-    mxR=(e.clientX-r.left)*(W/r.width);
-    myR=(e.clientY-r.top)*(H/r.height);
-  });
-  cnv.addEventListener('mouseleave', ()=>{ mxR=-1; myR=-1; });
-
-  frame();
-})();
+/* Node Scanner rendered by Three.js module script below */
 
 /* ════════════════ Matrix Rain ════════════════ */
 function triggerMatrix(dur) {
@@ -942,6 +812,238 @@ addEventListener('mousemove',e=>{
   const y=(e.clientY/innerHeight-.5)*8;
   heroContent.style.transform=`translate(${x*.3}px,${y*.3}px)`;
 });
+</script>
+
+<!-- ══ Three.js Node Scanner (WebGL) ══ -->
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+(function initNodeScanner() {
+  const wrap = document.querySelector('.scanner-wrap');
+  if (!wrap) return;
+
+  /* remove old placeholder canvas */
+  document.getElementById('nodeCanvas')?.remove();
+
+  const SCENE_H = 320;
+  let W = wrap.clientWidth;
+
+  /* ── renderer ── */
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(W, SCENE_H);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.domElement.style.cssText =
+    `display:block;width:100%;height:${SCENE_H}px;cursor:none;`;
+
+  const hintBar = wrap.querySelector('.scanner-hint-bar');
+  wrap.style.position = 'relative';
+  wrap.insertBefore(renderer.domElement, hintBar);
+
+  /* ── scene / camera ── */
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05050a);
+
+  const camera = new THREE.PerspectiveCamera(45, W / SCENE_H, 0.1, 100);
+  camera.position.set(0, 0, 8.5);
+
+  /* ── post-processing: bloom ── */
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(
+    new THREE.Vector2(W, SCENE_H),
+    1.8,   // strength
+    0.35,  // radius
+    0.05   // threshold
+  );
+  composer.addPass(bloom);
+
+  const L = THREE.MathUtils.lerp;
+
+  /* ── crystal node factory ── */
+  function makeNode(geo, hex, x) {
+    const col   = new THREE.Color(hex);
+    const group = new THREE.Group();
+    group.position.x = x;
+
+    /* glass/crystal inner body */
+    const innerMat = new THREE.MeshPhysicalMaterial({
+      color: col,
+      emissive: col,
+      emissiveIntensity: 0.25,
+      metalness: 0.05,
+      roughness: 0.08,
+      transmission: 0.72,
+      thickness: 1.4,
+      ior: 1.52,
+      transparent: true,
+      opacity: 0.8,
+      side: THREE.DoubleSide,
+    });
+    group.add(new THREE.Mesh(geo.clone(), innerMat));
+
+    /* glowing wireframe edge overlay */
+    const wireMat = new THREE.MeshBasicMaterial({
+      color: col,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.45,
+    });
+    const wire = new THREE.Mesh(geo.clone(), wireMat);
+    wire.scale.setScalar(1.012);
+    group.add(wire);
+
+    scene.add(group);
+    return { group, innerMat, wireMat };
+  }
+
+  const NEWS = makeNode(new THREE.IcosahedronGeometry(1, 0), '#00f5ff', -2.6);
+  const CS2  = makeNode(new THREE.OctahedronGeometry(1, 0),  '#bf5fff',  2.6);
+
+  /* ── dashed connecting beam ── */
+  const beamMat = new THREE.LineDashedMaterial({
+    color: 0x00f5ff, dashSize: 0.14, gapSize: 0.1,
+    transparent: true, opacity: 0,
+  });
+  const beam = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-1.6, 0, 0),
+      new THREE.Vector3( 1.6, 0, 0),
+    ]),
+    beamMat
+  );
+  beam.computeLineDistances();
+  scene.add(beam);
+
+  /* ── lights ── */
+  scene.add(new THREE.AmbientLight(0x080818, 3));
+  const lCyan = new THREE.PointLight(0x00f5ff, 12, 18);
+  lCyan.position.set(-4, 2, 6);
+  scene.add(lCyan);
+  const lPurp = new THREE.PointLight(0xbf5fff, 12, 18);
+  lPurp.position.set(4, 2, 6);
+  scene.add(lPurp);
+
+  /* ── raycaster hover ── */
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let hovNode = null;
+
+  function pick(e) {
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(
+      ((e.clientX - r.left) / r.width)  *  2 - 1,
+      ((e.clientY - r.top)  / r.height) * -2 + 1
+    );
+    ray.setFromCamera(ndc, camera);
+    const allMeshes = [...NEWS.group.children, ...CS2.group.children];
+    const hits = ray.intersectObjects(allMeshes);
+    if (!hits.length) return null;
+    return hits[0].object.parent === NEWS.group ? NEWS : CS2;
+  }
+
+  renderer.domElement.addEventListener('mousemove', e => { hovNode = pick(e); });
+  renderer.domElement.addEventListener('mouseleave', () => { hovNode = null; });
+
+  /* ── floating AI log panel ── */
+  const panel = document.createElement('div');
+  panel.style.cssText = `
+    position:absolute;top:16px;left:50%;transform:translateX(-50%);
+    background:rgba(2,6,18,0.92);border:1px solid #00f5ff;border-radius:10px;
+    padding:12px 22px;font-family:'Share Tech Mono',monospace;font-size:0.67rem;
+    line-height:1.85;color:#00f5ff;pointer-events:none;opacity:0;
+    transition:opacity .25s;z-index:10;min-width:230px;
+    backdrop-filter:blur(14px);white-space:nowrap;`;
+  wrap.insertBefore(panel, hintBar);
+
+  const AI_LOGS = {
+    news: [
+      '> Initializing NLP engine...',
+      '> Scanning source credibility...',
+      '> Cross-referencing 142 outlets...',
+      '> Bias score: 12.3%',
+      '> VERDICT: 78.4% credibility ✓',
+    ],
+    cs2: [
+      '> Loading match replay...',
+      '> Analyzing 1,247 positions...',
+      '> Crosshair errors detected: 34',
+      '> Win probability boost: +14.2%',
+      '> Coach report ready ✓',
+    ],
+  };
+
+  let activeNode = null, logTimer = null, logIdx = 0;
+
+  function openPanel(node) {
+    if (activeNode === node) { closePanel(); return; }
+    activeNode = node;
+    const isNews = node === NEWS;
+    const c = isNews ? '#00f5ff' : '#bf5fff';
+    panel.style.borderColor = c;
+    panel.style.color = c;
+    panel.style.left  = isNews ? '27%' : '73%';
+    panel.style.opacity = '1';
+    const lines = AI_LOGS[isNews ? 'news' : 'cs2'];
+    logIdx = 0;
+    clearInterval(logTimer);
+    function step() {
+      panel.innerHTML = lines.slice(0, logIdx + 1).join('<br>');
+      if (logIdx < lines.length - 1) logIdx++;
+    }
+    step();
+    logTimer = setInterval(step, 530);
+  }
+
+  function closePanel() {
+    activeNode = null;
+    clearInterval(logTimer);
+    panel.style.opacity = '0';
+  }
+
+  renderer.domElement.addEventListener('click', e => {
+    const n = pick(e);
+    if (n) openPanel(n); else closePanel();
+  });
+
+  /* ── per-node animation tick ── */
+  function tickNode(node, hov, dt, t) {
+    node.group.rotation.y += dt * (hov ? 1.7  : 0.32);
+    node.group.rotation.x += dt * (hov ? 0.38 : 0.08);
+    const ts = hov ? 1.12 + Math.sin(t * 6) * 0.04 : 1.0;
+    node.group.scale.setScalar(L(node.group.scale.x, ts, 0.09));
+    node.innerMat.emissiveIntensity = L(node.innerMat.emissiveIntensity, hov ? 1.7 : 0.25, 0.06);
+    node.wireMat.opacity = L(node.wireMat.opacity, hov ? 0.92 : 0.45, 0.07);
+  }
+
+  /* ── render loop ── */
+  const clock = new THREE.Clock();
+  (function loop() {
+    requestAnimationFrame(loop);
+    const dt = clock.getDelta(), t = clock.getElapsedTime();
+    const hn = hovNode === NEWS, hc = hovNode === CS2, any = hn || hc;
+    tickNode(NEWS, hn, dt, t);
+    tickNode(CS2,  hc, dt, t);
+    beamMat.opacity = L(beamMat.opacity, any ? 0.65 : 0, 0.06);
+    bloom.strength  = L(bloom.strength,  any ? 2.7 : 1.8, 0.05);
+    composer.render();
+  })();
+
+  /* ── resize ── */
+  window.addEventListener('resize', () => {
+    W = wrap.clientWidth;
+    renderer.setSize(W, SCENE_H);
+    composer.setSize(W, SCENE_H);
+    camera.aspect = W / SCENE_H;
+    camera.updateProjectionMatrix();
+    bloom.resolution.set(W, SCENE_H);
+  });
+})();
 </script>
 </body>
 </html>
