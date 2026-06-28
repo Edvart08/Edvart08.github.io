@@ -814,33 +814,30 @@ addEventListener('mousemove',e=>{
 });
 </script>
 
-<!-- ══ Three.js Node Scanner (WebGL) ══ -->
+<!-- ══ AI Command Center (Three.js WebGL) ══ -->
 <script type="module">
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-(function initNodeScanner() {
+(function initCommandCenter() {
   const wrap = document.querySelector('.scanner-wrap');
   if (!wrap) return;
-
-  /* remove old placeholder canvas */
   document.getElementById('nodeCanvas')?.remove();
 
-  const SCENE_H = 320;
+  const SCENE_H = 390;
   let W = wrap.clientWidth;
+  const L = THREE.MathUtils.lerp;
 
   /* ── renderer ── */
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(W, SCENE_H);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 1.3;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.domElement.style.cssText =
-    `display:block;width:100%;height:${SCENE_H}px;cursor:none;`;
-
+  renderer.domElement.style.cssText = `display:block;width:100%;height:${SCENE_H}px;cursor:none;`;
   const hintBar = wrap.querySelector('.scanner-hint-bar');
   wrap.style.position = 'relative';
   wrap.insertBefore(renderer.domElement, hintBar);
@@ -848,189 +845,307 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
   /* ── scene / camera ── */
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x05050a);
+  scene.fog = new THREE.FogExp2(0x05050a, 0.045);
 
-  const camera = new THREE.PerspectiveCamera(45, W / SCENE_H, 0.1, 100);
-  camera.position.set(0, 0, 8.5);
+  const camera = new THREE.PerspectiveCamera(50, W / SCENE_H, 0.1, 100);
+  camera.position.set(0, 0.4, 9);
 
-  /* ── post-processing: bloom ── */
+  /* ── bloom ── */
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(
-    new THREE.Vector2(W, SCENE_H),
-    1.8,   // strength
-    0.35,  // radius
-    0.05   // threshold
-  );
+  const bloom = new UnrealBloomPass(new THREE.Vector2(W, SCENE_H), 2.0, 0.38, 0.04);
   composer.addPass(bloom);
 
-  const L = THREE.MathUtils.lerp;
+  /* ────────────────────────────────────────────────────────────────
+     LEFT NODE — Data Sphere Scanner (Fake News Detector)
+  ──────────────────────────────────────────────────────────────── */
+  const newsGroup = new THREE.Group();
+  newsGroup.position.set(-2.8, 0, 0);
+  scene.add(newsGroup);
 
-  /* ── crystal node factory ── */
-  function makeNode(geo, hex, x) {
-    const col   = new THREE.Color(hex);
-    const group = new THREE.Group();
-    group.position.x = x;
+  /* glass sphere core */
+  const sphereGeo = new THREE.SphereGeometry(1, 14, 10);
+  const sphereMat = new THREE.MeshPhysicalMaterial({
+    color: 0x00f5ff, emissive: 0x00f5ff, emissiveIntensity: 0.28,
+    metalness: 0.05, roughness: 0.06, transmission: 0.78, thickness: 0.6,
+    transparent: true, opacity: 0.72, side: THREE.DoubleSide,
+  });
+  newsGroup.add(new THREE.Mesh(sphereGeo, sphereMat));
 
-    /* glass/crystal inner body */
-    const innerMat = new THREE.MeshPhysicalMaterial({
-      color: col,
-      emissive: col,
-      emissiveIntensity: 0.25,
-      metalness: 0.05,
-      roughness: 0.08,
-      transmission: 0.72,
-      thickness: 1.4,
-      ior: 1.52,
-      transparent: true,
-      opacity: 0.8,
-      side: THREE.DoubleSide,
-    });
-    group.add(new THREE.Mesh(geo.clone(), innerMat));
+  /* wireframe shell */
+  const sWireMat = new THREE.MeshBasicMaterial({ color: 0x00f5ff, wireframe: true, transparent: true, opacity: 0.32 });
+  newsGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.012, 14, 10), sWireMat));
 
-    /* glowing wireframe edge overlay */
-    const wireMat = new THREE.MeshBasicMaterial({
-      color: col,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.45,
-    });
-    const wire = new THREE.Mesh(geo.clone(), wireMat);
-    wire.scale.setScalar(1.012);
-    group.add(wire);
-
-    scene.add(group);
-    return { group, innerMat, wireMat };
+  /* orbital rings — gyroscope style */
+  function torus(r, tube, col, rx, ry, rz) {
+    const m = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.55 });
+    const t = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 4, 56), m);
+    t.rotation.set(rx, ry, rz);
+    return t;
   }
+  const ring1 = torus(1.42, 0.012, 0x00f5ff, Math.PI/2, 0, 0);
+  const ring2 = torus(1.38, 0.009, 0x00ddff, 0.3, 0.5, 0);
+  const ring3 = torus(1.52, 0.007, 0x0099ff, 1.1, 0, -0.3);
+  newsGroup.add(ring1, ring2, ring3);
 
-  const NEWS = makeNode(new THREE.IcosahedronGeometry(1, 0), '#00f5ff', -2.6);
-  const CS2  = makeNode(new THREE.OctahedronGeometry(1, 0),  '#bf5fff',  2.6);
+  /* ────────────────────────────────────────────────────────────────
+     RIGHT NODE — Tactical Holographic Module (CS2 AI Coach)
+  ──────────────────────────────────────────────────────────────── */
+  const cs2Group = new THREE.Group();
+  cs2Group.position.set(2.8, 0, 0);
+  scene.add(cs2Group);
+
+  /* crystal core */
+  const octMat = new THREE.MeshPhysicalMaterial({
+    color: 0xbf5fff, emissive: 0xbf5fff, emissiveIntensity: 0.28,
+    metalness: 0.05, roughness: 0.06, transmission: 0.75, thickness: 0.7,
+    transparent: true, opacity: 0.75, side: THREE.DoubleSide,
+  });
+  cs2Group.add(new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), octMat));
+
+  const oWireMat = new THREE.MeshBasicMaterial({ color: 0xbf5fff, wireframe: true, transparent: true, opacity: 0.45 });
+  cs2Group.add(new THREE.Mesh(new THREE.OctahedronGeometry(1.012, 0), oWireMat));
+
+  /* holographic grid floor */
+  const gCvs = document.createElement('canvas');
+  gCvs.width = gCvs.height = 256;
+  const gCtx = gCvs.getContext('2d');
+  gCtx.clearRect(0, 0, 256, 256);
+  gCtx.strokeStyle = 'rgba(191,95,255,0.7)';
+  gCtx.lineWidth = 1;
+  for (let i = 0; i <= 256; i += 28) {
+    gCtx.beginPath(); gCtx.moveTo(i,0);   gCtx.lineTo(i,256);   gCtx.stroke();
+    gCtx.beginPath(); gCtx.moveTo(0,i);   gCtx.lineTo(256,i);   gCtx.stroke();
+  }
+  const gridTex = new THREE.CanvasTexture(gCvs);
+  const gridPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.8, 3.8),
+    new THREE.MeshBasicMaterial({ map: gridTex, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+  );
+  gridPlane.rotation.x = -Math.PI / 2;
+  gridPlane.position.y = -1.55;
+  cs2Group.add(gridPlane);
+
+  /* scanning ring */
+  const scanRing = torus(1.65, 0.014, 0xbf5fff, Math.PI/2, 0, 0);
+  cs2Group.add(scanRing);
 
   /* ── dashed connecting beam ── */
   const beamMat = new THREE.LineDashedMaterial({
-    color: 0x00f5ff, dashSize: 0.14, gapSize: 0.1,
-    transparent: true, opacity: 0,
+    color: 0x00f5ff, dashSize: 0.13, gapSize: 0.09, transparent: true, opacity: 0,
   });
   const beam = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(-1.6, 0, 0),
-      new THREE.Vector3( 1.6, 0, 0),
+      new THREE.Vector3(-1.8, 0, 0), new THREE.Vector3(1.8, 0, 0),
     ]),
     beamMat
   );
   beam.computeLineDistances();
   scene.add(beam);
 
+  /* ── NEON PARTICLES with cursor gravity ── */
+  const N_PARTS = 300;
+  const pPos = new Float32Array(N_PARTS * 3);
+  const pVel = [];
+  for (let i = 0; i < N_PARTS; i++) {
+    const left = i < N_PARTS / 2;
+    pPos[i*3]   = (left ? -2.8 : 2.8) + (Math.random()-0.5) * 3.2;
+    pPos[i*3+1] = (Math.random()-0.5) * 3;
+    pPos[i*3+2] = (Math.random()-0.5) * 2.2;
+    pVel.push({ x: (Math.random()-0.5)*0.003, y: (Math.random()-0.5)*0.003, z: (Math.random()-0.5)*0.002 });
+  }
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  const pMat = new THREE.PointsMaterial({ color: 0x00f5ff, size: 0.028, transparent: true, opacity: 0.75, sizeAttenuation: true });
+  scene.add(new THREE.Points(pGeo, pMat));
+
   /* ── lights ── */
   scene.add(new THREE.AmbientLight(0x080818, 3));
-  const lCyan = new THREE.PointLight(0x00f5ff, 12, 18);
-  lCyan.position.set(-4, 2, 6);
-  scene.add(lCyan);
-  const lPurp = new THREE.PointLight(0xbf5fff, 12, 18);
-  lPurp.position.set(4, 2, 6);
-  scene.add(lPurp);
+  const lC = new THREE.PointLight(0x00f5ff, 10, 20); lC.position.set(-4, 2, 6); scene.add(lC);
+  const lP = new THREE.PointLight(0xbf5fff, 10, 20); lP.position.set( 4, 2, 6); scene.add(lP);
 
-  /* ── raycaster hover ── */
+  /* spotlight beam on hover */
+  const spotL = new THREE.SpotLight(0x00f5ff, 0, 22, Math.PI/7, 0.4);
+  spotL.position.set(0, 6, 2);
+  scene.add(spotL);
+  scene.add(spotL.target);
+
+  /* ── RAYCASTER / POINTER ── */
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
+  const mouseWorld = new THREE.Vector3();
+  const pickPlane  = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
   let hovNode = null;
 
-  function pick(e) {
+  function setNDC(e) {
     const r = renderer.domElement.getBoundingClientRect();
-    ndc.set(
-      ((e.clientX - r.left) / r.width)  *  2 - 1,
-      ((e.clientY - r.top)  / r.height) * -2 + 1
-    );
+    ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  }
+  function pickType() {
     ray.setFromCamera(ndc, camera);
-    const allMeshes = [...NEWS.group.children, ...CS2.group.children];
-    const hits = ray.intersectObjects(allMeshes);
+    const meshes = [...newsGroup.children, ...cs2Group.children].filter(m => m.isMesh);
+    const hits   = ray.intersectObjects(meshes);
     if (!hits.length) return null;
-    return hits[0].object.parent === NEWS.group ? NEWS : CS2;
+    return hits[0].object.parent === newsGroup ? 'news' : 'cs2';
   }
 
-  renderer.domElement.addEventListener('mousemove', e => { hovNode = pick(e); });
-  renderer.domElement.addEventListener('mouseleave', () => { hovNode = null; });
+  renderer.domElement.addEventListener('mousemove', e => {
+    setNDC(e);
+    hovNode = pickType();
+    ray.setFromCamera(ndc, camera);
+    ray.ray.intersectPlane(pickPlane, mouseWorld);
+  });
+  renderer.domElement.addEventListener('mouseleave', () => { hovNode = null; mouseWorld.set(0,0,0); });
 
-  /* ── floating AI log panel ── */
+  /* ── HTML OVERLAYS ── */
+
+  /* mini tech-widgets bar */
+  const widgetsBar = document.createElement('div');
+  widgetsBar.style.cssText = `
+    position:absolute;bottom:46px;left:50%;transform:translateX(-50%);
+    display:flex;gap:16px;font-family:'Share Tech Mono',monospace;font-size:0.6rem;
+    letter-spacing:1px;pointer-events:none;z-index:5;white-space:nowrap;`;
+
+  const WD = [
+    { key:'api',     label:'API REQ/MIN',          val:'120',     color:'#00f5ff' },
+    { key:'conn',    label:'FASTAPI',               val:'STABLE',  color:'#00ff88' },
+    { key:'models',  label:'ACTIVE MODELS',         val:'2',       color:'#bf5fff' },
+  ];
+  WD.forEach(w => {
+    const d = document.createElement('div');
+    d.style.cssText = `background:rgba(0,5,15,0.75);border:1px solid rgba(0,245,255,0.15);
+      border-radius:6px;padding:5px 12px;text-align:center;`;
+    d.innerHTML = `<div style="color:${w.color};opacity:0.5;font-size:0.52rem;letter-spacing:2px;">${w.label}</div>
+      <div style="color:${w.color};font-size:0.72rem;margin-top:1px;" data-wid="${w.key}">${w.val}</div>`;
+    widgetsBar.appendChild(d);
+  });
+  wrap.insertBefore(widgetsBar, hintBar);
+
+  /* animate API counter */
+  setInterval(() => {
+    const el = wrap.querySelector('[data-wid="api"]');
+    if (el) el.textContent = (95 + Math.floor(Math.random()*55));
+  }, 1100);
+
+  /* floating AI log panel */
   const panel = document.createElement('div');
   panel.style.cssText = `
-    position:absolute;top:16px;left:50%;transform:translateX(-50%);
-    background:rgba(2,6,18,0.92);border:1px solid #00f5ff;border-radius:10px;
-    padding:12px 22px;font-family:'Share Tech Mono',monospace;font-size:0.67rem;
-    line-height:1.85;color:#00f5ff;pointer-events:none;opacity:0;
-    transition:opacity .25s;z-index:10;min-width:230px;
-    backdrop-filter:blur(14px);white-space:nowrap;`;
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    background:rgba(2,5,16,0.94);border:1px solid #00f5ff;border-radius:10px;
+    padding:11px 20px;font-family:'Share Tech Mono',monospace;font-size:0.65rem;
+    line-height:1.85;color:#00f5ff;pointer-events:none;opacity:0;transition:opacity .24s;
+    z-index:10;min-width:228px;backdrop-filter:blur(16px);white-space:nowrap;`;
   wrap.insertBefore(panel, hintBar);
 
+  /* hover infographic card */
+  const infoCard = document.createElement('div');
+  infoCard.style.cssText = `
+    position:absolute;top:50%;transform:translateY(-50%);
+    background:rgba(2,5,16,0.96);border:1px solid #00f5ff;border-radius:12px;
+    padding:14px 18px;font-family:'Share Tech Mono',monospace;font-size:0.62rem;
+    line-height:1.9;pointer-events:none;opacity:0;transition:opacity .28s;
+    z-index:11;width:192px;backdrop-filter:blur(18px);`;
+  wrap.insertBefore(infoCard, hintBar);
+
   const AI_LOGS = {
-    news: [
-      '> Initializing NLP engine...',
-      '> Scanning source credibility...',
-      '> Cross-referencing 142 outlets...',
-      '> Bias score: 12.3%',
-      '> VERDICT: 78.4% credibility ✓',
-    ],
-    cs2: [
-      '> Loading match replay...',
-      '> Analyzing 1,247 positions...',
-      '> Crosshair errors detected: 34',
-      '> Win probability boost: +14.2%',
-      '> Coach report ready ✓',
-    ],
+    news: ['> Initializing NLP engine...','> Scanning source credibility...','> Cross-referencing 142 outlets...','> Bias score: 12.3%','> VERDICT: 78.4% credibility ✓'],
+    cs2:  ['> Loading match replay...','> Analyzing 1,247 positions...','> Crosshair errors detected: 34','> Win probability boost: +14.2%','> Coach report ready ✓'],
+  };
+  const INFO = {
+    news: { col:'#00f5ff', left:'3%',  title:'FAKE NEWS DETECTOR',
+            lines:['Stack: Python + FastAPI','Engine: OpenAI GPT-4o','Sources: 142 databases','Accuracy: 94.2%','Latency: ~1.2 s / req'] },
+    cs2:  { col:'#bf5fff', left:'67%', title:'CS2 AI COACH',
+            lines:['Stack: Python + Aiogram','Engine: Groq LLaMA-3','Input: match replay data','Winrate boost: +14.2%','400+ sessions analyzed'] },
   };
 
   let activeNode = null, logTimer = null, logIdx = 0;
 
-  function openPanel(node) {
-    if (activeNode === node) { closePanel(); return; }
-    activeNode = node;
-    const isNews = node === NEWS;
-    const c = isNews ? '#00f5ff' : '#bf5fff';
-    panel.style.borderColor = c;
-    panel.style.color = c;
-    panel.style.left  = isNews ? '27%' : '73%';
-    panel.style.opacity = '1';
-    const lines = AI_LOGS[isNews ? 'news' : 'cs2'];
-    logIdx = 0;
-    clearInterval(logTimer);
-    function step() {
-      panel.innerHTML = lines.slice(0, logIdx + 1).join('<br>');
-      if (logIdx < lines.length - 1) logIdx++;
-    }
-    step();
-    logTimer = setInterval(step, 530);
+  function openPanel(type) {
+    if (activeNode === type) { closePanel(); return; }
+    activeNode = type;
+    const info = INFO[type];
+    /* log panel */
+    panel.style.borderColor = info.col;
+    panel.style.color       = info.col;
+    panel.style.left        = type === 'news' ? '28%' : '72%';
+    panel.style.opacity     = '1';
+    logIdx = 0; clearInterval(logTimer);
+    const lines = AI_LOGS[type];
+    function step(){ panel.innerHTML=lines.slice(0,logIdx+1).join('<br>'); if(logIdx<lines.length-1)logIdx++; }
+    step(); logTimer = setInterval(step, 520);
+    /* info card */
+    infoCard.style.borderColor = info.col;
+    infoCard.style.color       = info.col;
+    infoCard.style.left        = info.left;
+    infoCard.style.opacity     = '1';
+    infoCard.innerHTML = `<div style="opacity:.55;font-size:.56rem;letter-spacing:2px;margin-bottom:7px;">// ${info.title}</div>`+
+      info.lines.map(l=>`<div>▸ ${l}</div>`).join('');
   }
-
   function closePanel() {
-    activeNode = null;
-    clearInterval(logTimer);
-    panel.style.opacity = '0';
+    activeNode = null; clearInterval(logTimer);
+    panel.style.opacity = '0'; infoCard.style.opacity = '0';
   }
 
   renderer.domElement.addEventListener('click', e => {
-    const n = pick(e);
-    if (n) openPanel(n); else closePanel();
+    setNDC(e); const t = pickType();
+    if (t) openPanel(t); else closePanel();
   });
 
-  /* ── per-node animation tick ── */
-  function tickNode(node, hov, dt, t) {
-    node.group.rotation.y += dt * (hov ? 1.7  : 0.32);
-    node.group.rotation.x += dt * (hov ? 0.38 : 0.08);
-    const ts = hov ? 1.12 + Math.sin(t * 6) * 0.04 : 1.0;
-    node.group.scale.setScalar(L(node.group.scale.x, ts, 0.09));
-    node.innerMat.emissiveIntensity = L(node.innerMat.emissiveIntensity, hov ? 1.7 : 0.25, 0.06);
-    node.wireMat.opacity = L(node.wireMat.opacity, hov ? 0.92 : 0.45, 0.07);
-  }
-
-  /* ── render loop ── */
+  /* ── ANIMATION LOOP ── */
   const clock = new THREE.Clock();
   (function loop() {
     requestAnimationFrame(loop);
     const dt = clock.getDelta(), t = clock.getElapsedTime();
-    const hn = hovNode === NEWS, hc = hovNode === CS2, any = hn || hc;
-    tickNode(NEWS, hn, dt, t);
-    tickNode(CS2,  hc, dt, t);
-    beamMat.opacity = L(beamMat.opacity, any ? 0.65 : 0, 0.06);
-    bloom.strength  = L(bloom.strength,  any ? 2.7 : 1.8, 0.05);
+    const hn = hovNode==='news', hc = hovNode==='cs2', any = hn||hc;
+
+    /* particles: cursor gravity + drift */
+    const pa = pGeo.attributes.position.array;
+    for (let i = 0; i < N_PARTS; i++) {
+      const ix=i*3, iy=ix+1, iz=ix+2;
+      const dx = mouseWorld.x - pa[ix], dy = mouseWorld.y - pa[iy];
+      const d2 = dx*dx + dy*dy + 0.01;
+      if (d2 < 9) { pVel[i].x += dx/d2*0.00018; pVel[i].y += dy/d2*0.00018; }
+      pVel[i].x *= 0.984; pVel[i].y *= 0.984; pVel[i].z *= 0.984;
+      pa[ix] += pVel[i].x; pa[iy] += pVel[i].y; pa[iz] += pVel[i].z;
+      if (Math.abs(pa[ix]) > 5.8) pVel[i].x *= -0.7;
+      if (Math.abs(pa[iy]) > 2.6) pVel[i].y *= -0.7;
+      if (Math.abs(pa[iz]) > 2.0) pVel[i].z *= -0.7;
+    }
+    pGeo.attributes.position.needsUpdate = true;
+    pMat.color.setHex(hc ? 0xbf5fff : 0x00f5ff);
+
+    /* LEFT node: sphere scanner */
+    newsGroup.rotation.y += dt * (hn ? 1.55 : 0.27);
+    newsGroup.rotation.x  = Math.sin(t * 0.45) * 0.1;
+    ring1.rotation.z += dt * (hn ? 2.1 : 0.65);
+    ring2.rotation.x += dt * (hn ? 1.6 : 0.42);
+    ring3.rotation.y += dt * (hn ? 1.9 : 0.52);
+    const snS = hn ? 1.1 + Math.sin(t*6)*0.035 : 1;
+    newsGroup.scale.setScalar(L(newsGroup.scale.x, snS, 0.09));
+    sphereMat.emissiveIntensity = L(sphereMat.emissiveIntensity, hn ? 1.85 : 0.28, 0.06);
+    sWireMat.opacity = L(sWireMat.opacity, hn ? 0.88 : 0.32, 0.07);
+
+    /* RIGHT node: tactical module */
+    cs2Group.rotation.y += dt * (hc ? -1.55 : -0.27);
+    cs2Group.rotation.x  = Math.sin(t * 0.5 + 1) * 0.08;
+    scanRing.rotation.z += dt * (hc ? 2.6 : 0.72);
+    gridPlane.material.opacity = L(gridPlane.material.opacity, hc ? 0.65 : 0.22, 0.05);
+    const scS = hc ? 1.1 + Math.sin(t*6+1)*0.035 : 1;
+    cs2Group.scale.setScalar(L(cs2Group.scale.x, scS, 0.09));
+    octMat.emissiveIntensity = L(octMat.emissiveIntensity, hc ? 1.85 : 0.28, 0.06);
+    oWireMat.opacity = L(oWireMat.opacity, hc ? 0.9 : 0.45, 0.07);
+
+    /* spotlight beam: follows hovered node */
+    const tgtX = hn ? -2.8 : (hc ? 2.8 : 0);
+    spotL.target.position.setX(L(spotL.target.position.x, tgtX, 0.08));
+    spotL.target.updateMatrixWorld();
+    spotL.color.setHex(hn ? 0x00f5ff : 0xbf5fff);
+    spotL.intensity = L(spotL.intensity, any ? 28 : 0, 0.06);
+
+    /* beam + bloom */
+    beamMat.opacity  = L(beamMat.opacity,  any ? 0.7  : 0,   0.06);
+    bloom.strength   = L(bloom.strength,   any ? 3.3  : 2.0,  0.05);
+
     composer.render();
   })();
 
