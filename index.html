@@ -840,8 +840,8 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(W, SCENE_H);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.4;
+  renderer.toneMapping = THREE.ReinhardToneMapping;
+  renderer.toneMappingExposure = 1.0;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.domElement.style.cssText = `display:block;width:100%;height:${SCENE_H}px;cursor:none;`;
   wrap.insertBefore(renderer.domElement, hintBar);
@@ -878,12 +878,12 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
   pmrem.dispose(); eTex.dispose();
 
   /* ── 5 COLORED LIGHTS (blue, purple, white + 2 rim) ── */
-  scene.add(new THREE.AmbientLight(0x080818, 2.5));
-  const lBlue  = new THREE.PointLight(0x00f5ff, 16, 22); lBlue.position.set(-5,  3,  6); scene.add(lBlue);
-  const lPurp  = new THREE.PointLight(0xbf5fff, 16, 22); lPurp.position.set( 5,  3,  6); scene.add(lPurp);
-  const lWhite = new THREE.PointLight(0xe8f0ff, 10, 20); lWhite.position.set( 0, -3,  8); scene.add(lWhite);
-  const lRimL  = new THREE.PointLight(0x0055ff,  8, 18); lRimL.position.set(-4, -2, -3); scene.add(lRimL);
-  const lRimR  = new THREE.PointLight(0x7700ff,  8, 18); lRimR.position.set( 4, -2, -3); scene.add(lRimR);
+  scene.add(new THREE.AmbientLight(0x080818, 1.2));
+  const lBlue  = new THREE.PointLight(0x00f5ff, 5, 22); lBlue.position.set(-5,  3,  6); scene.add(lBlue);
+  const lPurp  = new THREE.PointLight(0xbf5fff, 5, 22); lPurp.position.set( 5,  3,  6); scene.add(lPurp);
+  const lWhite = new THREE.PointLight(0xe8f0ff, 3, 20); lWhite.position.set( 0, -3,  8); scene.add(lWhite);
+  const lRimL  = new THREE.PointLight(0x0055ff,  2, 18); lRimL.position.set(-4, -2, -3); scene.add(lRimL);
+  const lRimR  = new THREE.PointLight(0x7700ff,  2, 18); lRimR.position.set( 4, -2, -3); scene.add(lRimR);
   const spotL  = new THREE.SpotLight(0x00f5ff, 0, 24, Math.PI/7, 0.35);
   spotL.position.set(0, 7, 3); scene.add(spotL); scene.add(spotL.target);
 
@@ -891,11 +891,11 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
   function glassMat(hex) {
     const col = new THREE.Color(hex);
     return new THREE.MeshPhysicalMaterial({
-      color: col, emissive: col, emissiveIntensity: 0.22,
-      metalness: 0.02, roughness: 0.08,
-      transmission: 0.80, thickness: 1.0, ior: 1.52,
-      envMap, envMapIntensity: 1.5,
-      transparent: true, opacity: 0.82, side: THREE.DoubleSide,
+      color: col, emissive: col, emissiveIntensity: 0.18,
+      metalness: 0.02, roughness: 0.12,
+      transmission: 0.55, thickness: 1.0, ior: 1.52,
+      envMap, envMapIntensity: 0.7,
+      transparent: true, opacity: 0.88, side: THREE.DoubleSide,
     });
   }
 
@@ -977,7 +977,7 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
 
-  const bloom = new UnrealBloomPass(new THREE.Vector2(W, SCENE_H), 2.2, 0.36, 0.04);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(W, SCENE_H), 0.8, 0.5, 0.4);
   composer.addPass(bloom);
 
   const smaa = new SMAAPass(W * renderer.getPixelRatio(), SCENE_H * renderer.getPixelRatio());
@@ -1155,8 +1155,8 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
     ring1.rotation.z += dt*(hn ? 2.0  : 0.62);
     ring2.rotation.x += dt*(hn ? 1.55 : 0.40);
     ring3.rotation.y += dt*(hn ? 1.8  : 0.52);
-    sphereMat.emissiveIntensity = L(sphereMat.emissiveIntensity, hn ? 1.9 : 0.22, 0.06);
-    sWireMat.opacity = L(sWireMat.opacity, hn ? 0.86 : 0.28, 0.07);
+    sphereMat.emissiveIntensity = L(sphereMat.emissiveIntensity, hn ? 0.65 : 0.18, 0.06);
+    sWireMat.opacity = L(sWireMat.opacity, hn ? 0.72 : 0.28, 0.07);
 
     /* RIGHT — tactical crystal */
     autoC -= dt*(hc ? 1.5 : 0.28);
@@ -1164,18 +1164,18 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
     cs2Group.rotation.x = Math.sin(t*0.5+1)*0.07 - spring.x;
     scanRing.rotation.z += dt*(hc ? 2.5 : 0.72);
     gridPlane.material.opacity = L(gridPlane.material.opacity, hc ? 0.62 : 0.2, 0.05);
-    octMat.emissiveIntensity = L(octMat.emissiveIntensity, hc ? 1.9 : 0.22, 0.06);
-    oWireMat.opacity = L(oWireMat.opacity, hc ? 0.88 : 0.38, 0.07);
+    octMat.emissiveIntensity = L(octMat.emissiveIntensity, hc ? 0.65 : 0.18, 0.06);
+    oWireMat.opacity = L(oWireMat.opacity, hc ? 0.82 : 0.38, 0.07);
 
     /* spotlight */
     spotL.target.position.setX(L(spotL.target.position.x, hn ? -2.8 : (hc ? 2.8 : 0), 0.08));
     spotL.target.updateMatrixWorld();
     spotL.color.setHex(hn ? 0x00f5ff : 0xbf5fff);
-    spotL.intensity = L(spotL.intensity, any ? 30 : 0, 0.06);
+    spotL.intensity = L(spotL.intensity, any ? 10 : 0, 0.06);
 
     /* beam + bloom */
     beamMat.opacity = L(beamMat.opacity, any ? 0.7 : 0, 0.06);
-    bloom.strength  = L(bloom.strength,  any ? 3.4 : 2.2, 0.05);
+    bloom.strength  = L(bloom.strength,  any ? 1.0 : 0.8, 0.05);
 
     /* chromatic aberration: boost on hover */
     chromaPass.uniforms.strength.value = L(chromaPass.uniforms.strength.value, any ? 0.0042 : 0.0022, 0.04);
