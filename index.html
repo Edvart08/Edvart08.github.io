@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oguzok — Full-Stack & AI Developer</title>
+  <meta name="description" content="Full-Stack & AI Developer from Vladikavkaz. Building high-performance web services and AI systems.">
+  <meta property="og:title" content="Oguzok — Full-Stack & AI Developer">
+  <meta property="og:description" content="Building web services and AI systems that actually work.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:     #05050a;
+      --bg2:    #0a0a14;
+      --cyan:   #00f5ff;
+      --purple: #bf5fff;
+      --pink:   #ff2d78;
+      --green:  #00ff88;
+      --text:   #d8d8f0;
+      --dim:    #7070a0;
+      --glass:  rgba(255,255,255,0.03);
+      --gb:     rgba(0,245,255,0.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ── Loader ── */
+    #loader {
+      position: fixed; inset: 0; z-index: 9000;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+    #loader.hidden { opacity: 0; visibility: hidden; }
+    .loader-text {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--cyan);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    .loader-bar-wrap {
+      width: 200px; height: 2px;
+      background: rgba(0,245,255,0.15);
+    }
+    .loader-bar {
+      height: 100%;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      width: 0;
+      animation: loadBar 1.8s ease forwards;
+    }
+    @keyframes loadBar { to { width: 100%; } }
+
+    /* ── Canvas & overlays ── */
+    #bg-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    }
+    .grid-overlay {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(0,245,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,245,255,0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+    .scanlines {
+      position: fixed; inset: 0; z-index: 300; pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px
+      );
+    }
+    .mouse-glow {
+      position: fixed; width: 600px; height: 600px;
+      border-radius: 50%; pointer-events: none; z-index: 0;
+      background: radial-gradient(circle, rgba(0,245,255,0.04) 0%, transparent 70%);
+      transform: translate(-50%, -50%);
+      transition: left 0.1s, top 0.1s;
+    }
+
+    /* ── Cursor ── */
+    .cur-dot {
+      position: fixed; width: 8px; height: 8px;
+      background: var(--cyan); border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      box-shadow: 0 0 8px var(--cyan), 0 0 20px var(--cyan);
+      transform: translate(-50%,-50%);
+      transition: transform 0.1s;
+    }
+    .cur-ring {
+      position: fixed; width: 28px; height: 28px;
+      border: 1px solid rgba(0,245,255,0.5);
+      border-radius: 50%; pointer-events: none; z-index: 9998;
+      transform: translate(-50%,-50%);
+      transition: width 0.2s, height 0.2s, opacity 0.2s;
+    }
+    body:has(a:hover) .cur-dot { transform: translate(-50%,-50%) scale(2); }
+    body:has(a:hover) .cur-ring { width: 50px; height: 50px; opacity: 0.4; }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+      padding: 22px 8%;
+      display: flex; align-items: center; justify-content: space-between;
+      backdrop-filter: blur(20px);
+      background: rgba(5,5,10,0.6);
+      border-bottom: 1px solid rgba(0,245,255,0.08);
+      transition: border-color 0.3s;
+    }
+    .nav-logo {
+      font-family: 'Orbitron', monospace;
+      font-size: 1rem; font-weight: 900;
+      color: var(--cyan);
+      letter-spacing: 6px;
+      text-shadow: 0 0 20px var(--cyan);
+    }
+    .nav-links { display: flex; gap: 36px; list-style: none; }
+    .nav-links a {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.78rem; letter-spacing: 2px;
+      color: var(--dim); text-decoration: none;
+      text-transform: uppercase;
+      position: relative; transition: color 0.3s;
+    }
+    .nav-links a::after {
+      content: ''; position: absolute;
+      bottom: -4px; left: 0; width: 0; height: 1px;
+      background: var(--cyan); transition: width 0.3s;
+    }
+    .nav-links a:hover { color: var(--cyan); }
+    .nav-links a:hover::after { width: 100%; }
+
+    /* ── Hero ── */
+    #hero {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      justify-content: center; padding: 0 8%;
+      padding-top: 80px;
+    }
+    .hero-tag {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem; letter-spacing: 4px;
+      color: var(--green);
+      margin-bottom: 24px;
+      opacity: 0; animation: fadeUp 0.7s ease 2s forwards;
+    }
+    .hero-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(3.5rem, 9vw, 8rem);
+      font-weight: 900; line-height: 0.95;
+      color: #fff;
+      margin-bottom: 16px;
+      opacity: 0; animation: fadeUp 0.7s ease 2.2s forwards;
+    }
+    /* glitch */
+    .glitch { position: relative; }
+    .glitch::before, .glitch::after {
+      content: attr(data-text);
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+    .glitch::before {
+      color: var(--cyan); clip-path: polygon(0 20%, 100% 20%, 100% 45%, 0 45%);
+      animation: glitchTop 5s infinite 3s;
+      text-shadow: -3px 0 var(--cyan);
+    }
+    .glitch::after {
+      color: var(--pink); clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%);
+      animation: glitchBot 5s infinite 3s;
+      text-shadow: 3px 0 var(--pink);
+    }
+    @keyframes glitchTop {
+      0%,88%,100% { transform: translate(0); opacity:1; }
+      90% { transform: translate(-5px,1px); }
+      92% { transform: translate(5px,-1px); }
+      94% { transform: translate(-3px,2px); opacity:0.8; }
+      96% { transform: translate(0); }
+    }
+    @keyframes glitchBot {
+      0%,88%,100% { transform: translate(0); opacity:1; }
+      91% { transform: translate(5px,-1px); }
+      93% { transform: translate(-5px,1px); }
+      95% { transform: translate(3px,-2px); opacity:0.7; }
+      97% { transform: translate(0); }
+    }
+    .hero-role {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(1rem, 2.5vw, 1.6rem);
+      color: var(--cyan);
+      text-shadow: 0 0 25px var(--cyan);
+      margin-bottom: 28px;
+      height: 2.2rem;
+      display: flex; align-items: center; gap: 4px;
+      opacity: 0; animation: fadeUp 0.7s ease 2.4s forwards;
+    }
+    .type-cursor {
+      width: 2px; height: 1.3em;
+      background: var(--cyan);
+      animation: blink 0.7s step-end infinite;
+      flex-shrink: 0;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .hero-bio {
+      max-width: 540px;
+      color: var(--dim); font-size: 1.1rem; line-height: 1.75;
+      margin-bottom: 44px;
+      opacity: 0; animation: fadeUp 0.7s ease 2.6s forwards;
+    }
+    .hero-btns {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      opacity: 0; animation: fadeUp 0.7s ease 2.8s forwards;
+    }
+    .btn {
+      padding: 14px 34px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.72rem; letter-spacing: 3px; text-transform: uppercase;
+      text-decoration: none; border-radius: 4px;
+      position: relative; overflow: hidden;
+      transition: all 0.3s;
+    }
+    .btn::before {
+      content: ''; position: absolute;
+      top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+      transition: left 0.5s;
+    }
+    .btn:hover::before { left: 100%; }
+    .btn-primary {
+      border: 1px solid var(--cyan); color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan);
+      box-shadow: 0 0 20px rgba(0,245,255,0.15), inset 0 0 20px rgba(0,245,255,0.04);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 40px rgba(0,245,255,0.35), inset 0 0 40px rgba(0,245,255,0.08);
+      transform: translateY(-2px);
+    }
+    .btn-outline {
+      border: 1px solid rgba(191,95,255,0.5); color: var(--purple);
+      background: rgba(191,95,255,0.05);
+    }
+    .btn-outline:hover {
+      background: rgba(191,95,255,0.1);
+      box-shadow: 0 0 30px rgba(191,95,255,0.25);
+      transform: translateY(-2px);
+    }
+    .scroll-hint {
+      position: absolute; bottom: 36px; left: 8%;
+      display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+      opacity: 0; animation: fadeIn 1s ease 3.5s forwards;
+    }
+    .scroll-hint span {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem; letter-spacing: 3px;
+      color: var(--dim); text-transform: uppercase;
+    }
+    .scroll-line {
+      width: 1px; height: 50px;
+      background: linear-gradient(to bottom, var(--cyan), transparent);
+      animation: scrollPulse 2s ease-in-out infinite;
+    }
+    @keyframes scrollPulse {
+      0%   { transform: scaleY(0); transform-origin: top; opacity: 1; }
+      50%  { transform: scaleY(1); transform-origin: top; opacity: 1; }
+      51%  { transform: scaleY(1); transform-origin: bottom; }
+      100% { transform: scaleY(0); transform-origin: bottom; opacity: 0.3; }
+    }
+
+    /* ── Section base ── */
+    section { position: relative; z-index: 1; padding: 120px 8%; }
+    .section-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem; letter-spacing: 5px;
+      color: var(--cyan); text-transform: uppercase;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 12px;
+    }
+    .section-label::before {
+      content: ''; width: 28px; height: 1px; background: var(--cyan);
+    }
+    .section-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 700;
+      color: #fff; line-height: 1.1;
+    }
+    .section-header { margin-bottom: 70px; }
+
+    /* ── About ── */
+    .about-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 80px; align-items: start;
+    }
+    .about-text p {
+      color: var(--dim); font-size: 1.1rem; line-height: 1.8;
+      margin-bottom: 18px;
+    }
+    .about-text mark {
+      background: none; color: var(--cyan);
+      text-shadow: 0 0 10px rgba(0,245,255,0.4);
+    }
+    .stack-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.75rem; color: var(--dim);
+      margin: 32px 0 14px; letter-spacing: 2px;
+    }
+    .tech-grid {
+      display: flex; flex-wrap: wrap; gap: 10px;
+    }
+    .tech-item {
+      padding: 7px 16px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.78rem; color: var(--cyan);
+      border: 1px solid rgba(0,245,255,0.2);
+      border-radius: 4px;
+      background: rgba(0,245,255,0.04);
+      transition: all 0.3s;
+    }
+    .tech-item:hover {
+      background: rgba(0,245,255,0.1);
+      box-shadow: 0 0 16px rgba(0,245,255,0.2);
+      transform: translateY(-2px);
+    }
+
+    /* Terminal card */
+    .terminal-card {
+      background: #0c0c16;
+      border: 1px solid rgba(0,245,255,0.15);
+      border-radius: 12px; overflow: hidden;
+      box-shadow: 0 0 60px rgba(0,245,255,0.06);
+    }
+    .terminal-header {
+      background: #12121e;
+      padding: 12px 16px;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid rgba(0,245,255,0.1);
+    }
+    .terminal-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+    }
+    .terminal-dot.red    { background: #ff5f57; }
+    .terminal-dot.yellow { background: #ffbd2e; }
+    .terminal-dot.green  { background: #28ca42; }
+    .terminal-title {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.75rem; color: var(--dim);
+      margin-left: 8px;
+    }
+    .terminal-body { padding: 28px 24px; }
+    .terminal-body pre {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.82rem; line-height: 1.9;
+      white-space: pre-wrap;
+    }
+    .t-keyword { color: var(--purple); }
+    .t-class   { color: var(--cyan); }
+    .t-string  { color: var(--green); }
+    .t-fn      { color: #ffbd4f; }
+    .t-comment { color: var(--dim); }
+
+    /* ── Portfolio ── */
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 28px;
+    }
+    .project-card {
+      background: var(--glass);
+      border: 1px solid rgba(0,245,255,0.1);
+      border-radius: 16px; padding: 40px 36px;
+      position: relative; overflow: hidden;
+      transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s;
+      backdrop-filter: blur(8px);
+    }
+    .project-card::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      transform: scaleX(0); transition: transform 0.4s;
+    }
+    .project-card:hover::before { transform: scaleX(1); }
+    .project-card:hover {
+      transform: translateY(-10px);
+      border-color: rgba(0,245,255,0.3);
+      box-shadow: 0 24px 80px rgba(0,245,255,0.1), 0 0 0 1px rgba(0,245,255,0.08);
+    }
+    .project-card.purple:hover {
+      border-color: rgba(191,95,255,0.3);
+      box-shadow: 0 24px 80px rgba(191,95,255,0.12), 0 0 0 1px rgba(191,95,255,0.08);
+    }
+    .project-card.purple::before {
+      background: linear-gradient(90deg, transparent, var(--purple), transparent);
+    }
+    .project-number {
+      position: absolute; top: 24px; right: 28px;
+      font-family: 'Orbitron', monospace;
+      font-size: 5rem; font-weight: 900; line-height: 1;
+      color: rgba(0,245,255,0.05);
+      pointer-events: none; user-select: none;
+    }
+    .project-card.purple .project-number { color: rgba(191,95,255,0.05); }
+    .project-icon {
+      width: 54px; height: 54px;
+      background: rgba(0,245,255,0.07);
+      border: 1px solid rgba(0,245,255,0.2);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; margin-bottom: 24px;
+    }
+    .project-card.purple .project-icon {
+      background: rgba(191,95,255,0.07);
+      border-color: rgba(191,95,255,0.2);
+    }
+    .project-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.15rem; color: #fff;
+      margin-bottom: 14px;
+    }
+    .project-desc {
+      color: var(--dim); font-size: 0.98rem;
+      line-height: 1.75; margin-bottom: 24px;
+    }
+    .project-tags {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 32px;
+    }
+    .tag {
+      padding: 4px 12px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.7rem; color: var(--cyan);
+      border: 1px solid rgba(0,245,255,0.18);
+      border-radius: 20px;
+      background: rgba(0,245,255,0.05);
+    }
+    .tag.purple {
+      color: var(--purple);
+      border-color: rgba(191,95,255,0.2);
+      background: rgba(191,95,255,0.05);
+    }
+    .project-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.82rem; color: var(--cyan);
+      text-decoration: none; letter-spacing: 1px;
+      transition: gap 0.3s, text-shadow 0.3s;
+    }
+    .project-link:hover { gap: 14px; text-shadow: 0 0 12px var(--cyan); }
+    .project-card.purple .project-link { color: var(--purple); }
+    .project-card.purple .project-link:hover { text-shadow: 0 0 12px var(--purple); }
+
+    /* ── Contact ── */
+    #contact { text-align: center; }
+    #contact .section-label { justify-content: center; }
+    .contact-sub {
+      color: var(--dim); font-size: 1.05rem;
+      margin: 16px auto 56px; max-width: 420px; line-height: 1.7;
+    }
+    .contact-grid {
+      display: flex; flex-wrap: wrap;
+      justify-content: center; gap: 20px;
+    }
+    .contact-card {
+      display: flex; align-items: center; gap: 18px;
+      padding: 26px 36px; min-width: 220px;
+      background: var(--glass);
+      border: 1px solid rgba(0,245,255,0.1);
+      border-radius: 14px; text-decoration: none;
+      backdrop-filter: blur(8px);
+      transition: all 0.35s;
+    }
+    .contact-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(0,245,255,0.35);
+      box-shadow: 0 20px 50px rgba(0,245,255,0.12);
+    }
+    .contact-icon { color: var(--cyan); display: flex; align-items: center; }
+    .contact-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem; color: var(--dim);
+      letter-spacing: 3px; text-transform: uppercase;
+      margin-bottom: 4px; text-align: left;
+    }
+    .contact-value {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1rem; font-weight: 600;
+      color: var(--cyan); text-align: left;
+    }
+
+    /* ── Footer ── */
+    footer {
+      position: relative; z-index: 1;
+      text-align: center; padding: 36px 8%;
+      border-top: 1px solid rgba(0,245,255,0.07);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.7rem; color: var(--dim);
+      letter-spacing: 3px;
+    }
+    footer .accent { color: var(--cyan); }
+
+    /* ── Reveal animations ── */
+    .reveal {
+      opacity: 0; transform: translateY(36px);
+      transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1),
+                  transform 0.8s cubic-bezier(0.16,1,0.3,1);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform: translateY(24px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      nav { padding: 18px 6%; }
+      .nav-links { gap: 24px; }
+      section { padding: 80px 6%; }
+      .about-grid { grid-template-columns: 1fr; gap: 40px; }
+      .projects-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .nav-links { display: none; }
+      .hero-btns { flex-direction: column; }
+      .contact-card { min-width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Loader -->
+  <div id="loader">
+    <div class="loader-text" id="loaderText">Initializing...</div>
+    <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
+  </div>
+
+  <!-- BG layers -->
+  <canvas id="bg-canvas"></canvas>
+  <div class="grid-overlay"></div>
+  <div class="scanlines"></div>
+  <div class="mouse-glow" id="mouseGlow"></div>
+
+  <!-- Cursor -->
+  <div class="cur-dot" id="curDot"></div>
+  <div class="cur-ring" id="curRing"></div>
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-logo">OGZ</div>
+    <ul class="nav-links">
+      <li><a href="#about">About</a></li>
+      <li><a href="#portfolio">Projects</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+
+  <!-- ══ HERO ══ -->
+  <section id="hero">
+    <p class="hero-tag">&gt; SYSTEM ONLINE_</p>
+    <h1 class="hero-name glitch" data-text="OGUZOK">OGUZOK</h1>
+    <div class="hero-role">
+      <span id="typingText"></span>
+      <span class="type-cursor"></span>
+    </div>
+    <p class="hero-bio">
+      Full-Stack &amp; AI-разработчик из Владикавказа.
+      Строю высокопроизводительные веб-сервисы и автоматизированные ИИ-системы,
+      которые решают реальные задачи.
+    </p>
+    <div class="hero-btns">
+      <a href="#portfolio" class="btn btn-primary">View Projects</a>
+      <a href="#contact"   class="btn btn-outline">Contact Me</a>
+    </div>
+    <div class="scroll-hint">
+      <span>Scroll</span>
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- ══ ABOUT ══ -->
+  <section id="about">
+    <div class="section-header reveal">
+      <p class="section-label">01 / About</p>
+      <h2 class="section-title">Who Am I</h2>
+    </div>
+    <div class="about-grid">
+      <div class="about-text reveal">
+        <p>
+          Меня зовут <mark>Давлат</mark> — разработчик, который строит продукты,
+          решающие реальные проблемы. Специализируюсь на <mark>Python-бэкенде</mark>,
+          <mark>React-фронтенде</mark> и построении <mark>ИИ-систем</mark>.
+        </p>
+        <p>
+          Сейчас разрабатываю инструменты для анализа данных и игровых тренажёров.
+          Постоянно совершенствую стек, чтобы создавать масштабируемые и быстрые продукты.
+        </p>
+        <p class="stack-label">// Tech Stack</p>
+        <div class="tech-grid">
+          <span class="tech-item">Python</span>
+          <span class="tech-item">FastAPI</span>
+          <span class="tech-item">React</span>
+          <span class="tech-item">PostgreSQL</span>
+          <span class="tech-item">Docker</span>
+          <span class="tech-item">Redis</span>
+          <span class="tech-item">Aiogram</span>
+          <span class="tech-item">OpenAI API</span>
+          <span class="tech-item">Git</span>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="terminal-card">
+          <div class="terminal-header">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+            <span class="terminal-title">profile.py</span>
+          </div>
+          <div class="terminal-body">
+<pre><span class="t-keyword">class</span> <span class="t-class">Developer</span>:
+    name     <span class="t-comment">= </span><span class="t-string">"Davlat"</span>
+    alias    <span class="t-comment">= </span><span class="t-string">"Oguzok"</span>
+    location <span class="t-comment">= </span><span class="t-string">"Vladikavkaz, RU"</span>
+
+    stack <span class="t-comment">= </span>[
+        <span class="t-string">"Python"</span>, <span class="t-string">"FastAPI"</span>,
+        <span class="t-string">"React"</span>, <span class="t-string">"Docker"</span>,
+        <span class="t-string">"OpenAI API"</span>,
+    ]
+
+    focus <span class="t-comment">= </span>[
+        <span class="t-string">"AI Systems"</span>,
+        <span class="t-string">"Telegram Bots"</span>,
+        <span class="t-string">"Web Services"</span>,
+    ]
+
+    <span class="t-keyword">def</span> <span class="t-fn">hire_me</span>(self):
+        <span class="t-keyword">return</span> <span class="t-string">"Let's build something great"</span></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ PORTFOLIO ══ -->
+  <section id="portfolio">
+    <div class="section-header reveal">
+      <p class="section-label">02 / Projects</p>
+      <h2 class="section-title">What I Build</h2>
+    </div>
+    <div class="projects-grid">
+
+      <!-- Bot 1: Fake News -->
+      <div class="project-card reveal">
+        <div class="project-number">01</div>
+        <div class="project-icon">🔍</div>
+        <h3 class="project-title">Fake News Detector</h3>
+        <p class="project-desc">
+          Telegram-бот, который в секунды проверяет достоверность любой новости.
+          Анализирует источники, сравнивает факты через ИИ и выдаёт чёткую оценку
+          правдивости. Незаменим в эпоху информационного шума.
+        </p>
+        <div class="project-tags">
+          <span class="tag">Python</span>
+          <span class="tag">Aiogram</span>
+          <span class="tag">NLP</span>
+          <span class="tag">OpenAI API</span>
+          <span class="tag">FastAPI</span>
+        </div>
+        <a href="https://t.me/NewsCheccker_bot" class="project-link" target="_blank" rel="noopener">
+          Try Bot &rarr;
+        </a>
+      </div>
+
+      <!-- Bot 2: CS2 Coach -->
+      <div class="project-card purple reveal">
+        <div class="project-number">02</div>
+        <div class="project-icon">🎮</div>
+        <h3 class="project-title">CS2 AI Coach</h3>
+        <p class="project-desc">
+          Персональный ИИ-тренер для Counter-Strike 2. Анализирует геймплей,
+          выявляет слабые места и даёт конкретные советы по улучшению.
+          Как личный тренер — только 24&hairsp;/&hairsp;7 и бесплатно.
+        </p>
+        <div class="project-tags">
+          <span class="tag purple">Python</span>
+          <span class="tag purple">Aiogram</span>
+          <span class="tag purple">OpenAI API</span>
+          <span class="tag purple">Redis</span>
+          <span class="tag purple">CV</span>
+        </div>
+        <a href="https://t.me/cs2AI_coach_bot" class="project-link" target="_blank" rel="noopener">
+          Try Bot &rarr;
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══ CONTACT ══ -->
+  <section id="contact">
+    <div class="section-header reveal">
+      <p class="section-label">03 / Contact</p>
+      <h2 class="section-title">Get In Touch</h2>
+      <p class="contact-sub">
+        Открыт к новым проектам и возможностям.<br>Напишите — отвечу быстро.
+      </p>
+    </div>
+    <div class="contact-grid reveal">
+
+      <a href="https://github.com/Edvart08" class="contact-card" target="_blank" rel="noopener">
+        <div class="contact-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="contact-label">GitHub</p>
+          <p class="contact-value">Edvart08</p>
+        </div>
+      </a>
+
+      <a href="https://wellfound.com/u/burnatsev-davlat" class="contact-card" target="_blank" rel="noopener">
+        <div class="contact-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2"/>
+            <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+            <line x1="12" y1="12" x2="12" y2="17"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+        </div>
+        <div>
+          <p class="contact-label">Wellfound</p>
+          <p class="contact-value">burnatsev-davlat</p>
+        </div>
+      </a>
+
+      <a href="mailto:davlatburnacev@gmail.com" class="contact-card">
+        <div class="contact-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </div>
+        <div>
+          <p class="contact-label">Email</p>
+          <p class="contact-value">Write Me</p>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <footer>
+    <span class="accent">OGUZOK</span> &nbsp;·&nbsp; BUILT WITH CODE &amp; AMBITION &nbsp;·&nbsp; <span id="fyear"></span>
+  </footer>
+
+<script>
+/* ── Loader sequence ── */
+const loaderLines = [
+  'Loading modules...',
+  'Connecting neural net...',
+  'Compiling portfolio...',
+  'System ready.'
+];
+let li = 0;
+const loaderTextEl = document.getElementById('loaderText');
+const loaderInterval = setInterval(() => {
+  li++;
+  if (li < loaderLines.length) {
+    loaderTextEl.textContent = loaderLines[li];
+  } else {
+    clearInterval(loaderInterval);
+  }
+}, 450);
+setTimeout(() => {
+  document.getElementById('loader').classList.add('hidden');
+}, 2000);
+
+/* ── Year ── */
+document.getElementById('fyear').textContent = new Date().getFullYear();
+
+/* ── Particle canvas ── */
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Particle {
+  constructor() { this.init(); }
+  init() {
+    this.x  = Math.random() * W;
+    this.y  = Math.random() * H;
+    this.vx = (Math.random() - 0.5) * 0.35;
+    this.vy = (Math.random() - 0.5) * 0.35;
+    this.r  = Math.random() * 1.4 + 0.4;
+    this.a  = Math.random() * 0.5 + 0.15;
+    this.c  = Math.random() > 0.55 ? '0,245,255' : '191,95,255';
+  }
+  step() {
+    this.x += this.vx; this.y += this.vy;
+    if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.init();
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${this.c},${this.a})`;
+    ctx.fill();
+  }
+}
+
+const COUNT = window.innerWidth < 600 ? 60 : 110;
+const particles = Array.from({ length: COUNT }, () => new Particle());
+
+function drawLines() {
+  const maxDist = 110;
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const d  = Math.sqrt(dx * dx + dy * dy);
+      if (d < maxDist) {
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(0,245,255,${0.1 * (1 - d / maxDist)})`;
+        ctx.lineWidth = 0.5;
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(particles[j].x, particles[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+(function loop() {
+  ctx.clearRect(0, 0, W, H);
+  particles.forEach(p => { p.step(); p.draw(); });
+  drawLines();
+  requestAnimationFrame(loop);
+})();
+
+/* ── Mouse glow ── */
+const glow = document.getElementById('mouseGlow');
+document.addEventListener('mousemove', e => {
+  glow.style.left = e.clientX + 'px';
+  glow.style.top  = e.clientY + 'px';
+});
+
+/* ── Custom cursor ── */
+const dot  = document.getElementById('curDot');
+const ring = document.getElementById('curRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  dot.style.left = mx + 'px';
+  dot.style.top  = my + 'px';
+});
+(function animRing() {
+  rx += (mx - rx) * 0.14;
+  ry += (my - ry) * 0.14;
+  ring.style.left = rx + 'px';
+  ring.style.top  = ry + 'px';
+  requestAnimationFrame(animRing);
+})();
+
+/* ── Typing animation ── */
+const roles = [
+  'Full-Stack Developer',
+  'AI Developer',
+  'Python Engineer',
+  'Bot Architect',
+];
+let ri = 0, ci = 0, deleting = false;
+const typEl = document.getElementById('typingText');
+
+function type() {
+  const word = roles[ri];
+  if (deleting) {
+    typEl.textContent = word.slice(0, --ci);
+  } else {
+    typEl.textContent = word.slice(0, ++ci);
+  }
+  let delay = deleting ? 55 : 95;
+  if (!deleting && ci === word.length)  { delay = 2200; deleting = true; }
+  if ( deleting && ci === 0)            { deleting = false; ri = (ri + 1) % roles.length; delay = 250; }
+  setTimeout(type, delay);
+}
+setTimeout(type, 2900);
+
+/* ── Scroll reveal ── */
+const reveals = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if (entry.isIntersecting) {
+      setTimeout(() => entry.target.classList.add('visible'), i * 80);
+      io.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.12 });
+reveals.forEach(el => io.observe(el));
+</script>
+</body>
+</html>
