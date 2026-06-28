@@ -183,6 +183,15 @@
     .project-card.purple .project-link { color: var(--purple); }
     .project-card.purple .project-link:hover { text-shadow: 0 0 12px var(--purple); }
 
+    /* ── Node Scanner ── */
+    .scanner-wrap { margin-bottom: 60px; border: 1px solid rgba(0,245,255,0.08); border-radius: 14px; background: rgba(0,245,255,0.015); overflow: hidden; }
+    #nodeCanvas { display: block; width: 100%; height: 300px; cursor: none; }
+    .scanner-hint-bar { text-align: center; padding: 10px 20px; border-top: 1px solid rgba(0,245,255,0.06); font-family: 'Share Tech Mono', monospace; font-size: 0.64rem; color: var(--dim); letter-spacing: 3px; }
+
+    /* Logo pulse dot */
+    .logo-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin-left: 8px; vertical-align: middle; box-shadow: 0 0 6px var(--green); animation: dotPulse 2s ease-in-out infinite; }
+    @keyframes dotPulse { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:1;transform:scale(2)} }
+
     /* ── Contact ── */
     #contact { text-align: center; }
     #contact .section-label { justify-content: center; }
@@ -249,7 +258,7 @@
 
   <!-- Nav -->
   <nav>
-    <div class="nav-logo">OGZ</div>
+    <div class="nav-logo" id="ogzLogo" title="// click">OGZ<span class="logo-dot"></span></div>
     <div class="nav-right">
       <ul class="nav-links">
         <li><a href="#about"     data-i18n="nav-about">О себе</a></li>
@@ -402,6 +411,11 @@
       <p class="section-label" data-i18n="portfolio-label">03 / Проекты</p>
       <h2 class="section-title scramble-title" data-i18n="portfolio-title">Что я строю</h2>
     </div>
+    <div class="scanner-wrap reveal">
+      <canvas id="nodeCanvas"></canvas>
+      <p class="scanner-hint-bar" data-i18n="scanner-hint">// hover nodes to activate &nbsp;—&nbsp; FAKE NEWS DETECTOR &nbsp;/&nbsp; CS2 AI COACH</p>
+    </div>
+
     <div class="projects-grid">
       <div class="project-card reveal">
         <div class="project-number">01</div>
@@ -488,6 +502,7 @@ const LANGS = {
     'contact-label':'04 / Контакт','contact-title':'Связаться',
     'contact-sub':'Открыт к новым проектам и возможностям.<br>Напишите — отвечу быстро.',
     'write-me':'Написать',
+    'scanner-hint':'// навести на узлы для активации  —  FAKE NEWS DETECTOR  /  CS2 AI COACH',
     'footer-built':'СОЗДАНО С КОДОМ И АМБИЦИЯМИ',
     'stat0':'Живых бота','stat1':'Технологий в стеке','stat2':'AI API интеграции',
     roles:['Full-Stack разработчик','AI разработчик','Python инженер','Архитектор ботов'],
@@ -510,6 +525,7 @@ const LANGS = {
     'contact-label':'04 / Contact','contact-title':'Get In Touch',
     'contact-sub':'Open to new projects and opportunities.<br>Write — I respond fast.',
     'write-me':'Write Me',
+    'scanner-hint':'// hover nodes to activate  —  FAKE NEWS DETECTOR  /  CS2 AI COACH',
     'footer-built':'BUILT WITH CODE & AMBITION',
     'stat0':'Live Bots','stat1':'Tech Tools','stat2':'AI APIs',
     roles:['Full-Stack Developer','AI Developer','Python Engineer','Bot Architect'],
@@ -706,12 +722,153 @@ document.querySelectorAll('.btn').forEach(btn=>{
   btn.addEventListener('mouseenter',()=>{ btn.style.transition='transform .1s'; });
 });
 
-/* ════════════════ Matrix Rain Easter Egg (click OGZ logo) ════════════════ */
-document.querySelector('.nav-logo').addEventListener('click', () => {
+/* ════════════════ 3D Node Scanner ════════════════ */
+(function(){
+  const cnv = document.getElementById('nodeCanvas');
+  if (!cnv) return;
+  const c = cnv.getContext('2d');
+  let W, H;
+
+  function resize() { W = cnv.width = cnv.offsetWidth; H = cnv.height = 300; }
+  resize(); window.addEventListener('resize', () => { resize(); });
+
+  // Icosahedron geometry
+  const PHI = (1+Math.sqrt(5))/2, NRM = Math.sqrt(1+PHI*PHI);
+  const IV = [[-1,PHI,0],[1,PHI,0],[-1,-PHI,0],[1,-PHI,0],[0,-1,PHI],[0,1,PHI],[0,-1,-PHI],[0,1,-PHI],[PHI,0,-1],[PHI,0,1],[-PHI,0,-1],[-PHI,0,1]].map(v=>v.map(x=>x/NRM));
+  const IE = [[0,1],[0,5],[0,7],[0,10],[0,11],[1,5],[1,7],[1,8],[1,9],[2,3],[2,4],[2,6],[2,10],[2,11],[3,4],[3,6],[3,8],[3,9],[4,5],[4,9],[4,11],[5,9],[5,11],[6,7],[6,8],[6,10],[7,8],[7,10],[8,9],[10,11]];
+
+  // Octahedron geometry
+  const OV = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  const OE = [[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,4],[2,5],[3,4],[3,5]];
+
+  // State
+  let rotY=0, rotX=0.3, scanL=0, scanR=0, mxR=-1, myR=-1;
+
+  // 3D math
+  const rY = ([x,y,z],a) => [x*Math.cos(a)+z*Math.sin(a), y, -x*Math.sin(a)+z*Math.cos(a)];
+  const rX = ([x,y,z],a) => [x, y*Math.cos(a)-z*Math.sin(a), y*Math.sin(a)+z*Math.cos(a)];
+  const prj = ([x,y,z], s, ox, oy) => { const f=3/(3+z); return [ox+x*s*f, oy-y*s*f]; };
+  const xform = (verts, ry, rx) => verts.map(v => rX(rY(v,ry),rx));
+
+  function hit(pts, mx, my, s) {
+    if (mx<0) return false;
+    return pts.some(p => Math.hypot(p[0]-mx, p[1]-my) < s*1.4);
+  }
+
+  function drawShape(pts, edges, col, alpha, glow) {
+    for (const [a,b] of edges) {
+      c.beginPath();
+      c.strokeStyle = `rgba(${col},${alpha})`;
+      c.lineWidth = 0.8 + glow*0.7;
+      c.moveTo(pts[a][0],pts[a][1]); c.lineTo(pts[b][0],pts[b][1]);
+      c.stroke();
+    }
+    for (const p of pts) {
+      c.beginPath(); c.arc(p[0],p[1],1.5+glow*1.5,0,Math.PI*2);
+      c.fillStyle=`rgba(${col},${0.7+glow*0.3})`; c.fill();
+    }
+  }
+
+  function drawGlow(cx,cy,s,col,a) {
+    const g=c.createRadialGradient(cx,cy,0,cx,cy,s*2);
+    g.addColorStop(0,`rgba(${col},${a})`); g.addColorStop(1,'transparent');
+    c.fillStyle=g; c.fillRect(cx-s*2.5,cy-s*2.5,s*5,s*5);
+  }
+
+  function drawBeams(cx,cy,s,col,prog,n,spd) {
+    const t=Date.now()/1000;
+    for(let i=0;i<n;i++){
+      const a=(i/n)*Math.PI*2+t*spd;
+      c.beginPath(); c.moveTo(cx,cy);
+      c.lineTo(cx+Math.cos(a)*s*1.7*prog, cy+Math.sin(a)*s*1.7*prog);
+      c.strokeStyle=`rgba(${col},${0.22*prog})`; c.lineWidth=1; c.stroke();
+    }
+  }
+
+  function drawGrid(cx,cy,prog,col) {
+    if(prog<0.2) return;
+    c.save(); c.globalAlpha=(prog-0.2)*1.3;
+    const gs=18,gw=6,gh=5,ox=cx-gw*gs/2,oy=cy-gh*gs/2;
+    c.strokeStyle=`rgba(${col},0.4)`; c.lineWidth=0.5;
+    for(let i=0;i<=gw;i++){c.beginPath();c.moveTo(ox+i*gs,oy);c.lineTo(ox+i*gs,oy+gh*gs);c.stroke();}
+    for(let j=0;j<=gh;j++){c.beginPath();c.moveTo(ox,oy+j*gs);c.lineTo(ox+gw*gs,oy+j*gs);c.stroke();}
+    c.restore();
+  }
+
+  function frame() {
+    c.clearRect(0,0,W,H);
+    rotY+=0.009;
+
+    const s  = Math.min(W*0.13, 78);
+    const lx = W*0.28, rx = W*0.72, cy = H*0.5;
+
+    const iProj = xform(IV,rotY,rotX).map(v=>prj(v,s,lx,cy));
+    const oProj = xform(OV,-rotY*0.7,rotX*0.5).map(v=>prj(v,s,rx,cy));
+
+    scanL += (hit(iProj,mxR,myR,s)?1:-1)*0.045; scanL=Math.max(0,Math.min(1,scanL));
+    scanR += (hit(oProj,mxR,myR,s)?1:-1)*0.045; scanR=Math.max(0,Math.min(1,scanR));
+
+    // Glow halos
+    drawGlow(lx,cy,s,'0,245,255',0.05+scanL*0.12);
+    drawGlow(rx,cy,s,'191,95,255',0.05+scanR*0.12);
+
+    // FX
+    drawBeams(lx,cy,s,'0,245,255',scanL,14,1.3);
+    drawBeams(rx,cy,s,'191,95,255',scanR,8,-0.8);
+    drawGrid(rx,cy,scanR,'191,95,255');
+
+    // Data scan particles (left node only)
+    if (scanL>0) {
+      const t=Date.now()/1000;
+      for(let i=0;i<6;i++){
+        const angle=(i/6)*Math.PI*2+t*2, d=s*(0.4+Math.sin(t*3+i)*0.3)*scanL;
+        c.beginPath(); c.arc(lx+Math.cos(angle)*d,cy+Math.sin(angle)*d,1.5,0,Math.PI*2);
+        c.fillStyle=`rgba(0,245,255,${scanL*0.6})`; c.fill();
+      }
+    }
+
+    // Connection beam
+    const ca=Math.max(scanL,scanR)*0.28;
+    if(ca>0){
+      const grad=c.createLinearGradient(lx,cy,rx,cy);
+      grad.addColorStop(0,`rgba(0,245,255,${ca})`);
+      grad.addColorStop(1,`rgba(191,95,255,${ca})`);
+      c.save(); c.setLineDash([5,12]);
+      c.beginPath(); c.moveTo(lx,cy); c.lineTo(rx,cy);
+      c.strokeStyle=grad; c.lineWidth=1; c.stroke(); c.restore();
+    }
+
+    // Draw nodes
+    drawShape(iProj,IE,'0,245,255',0.38+scanL*0.42,scanL);
+    drawShape(oProj,OE,'191,95,255',0.38+scanR*0.42,scanR);
+
+    // Canvas labels
+    const fs=Math.min(10,W*0.018);
+    c.font=`${fs}px "Share Tech Mono",monospace`; c.textAlign='center';
+    c.fillStyle=`rgba(0,245,255,${0.4+scanL*0.6})`;
+    c.fillText(scanL>0.5?'// SCANNING DATA...':'FAKE NEWS DETECTOR', lx, cy+s+22);
+    c.fillStyle=`rgba(191,95,255,${0.4+scanR*0.6})`;
+    c.fillText(scanR>0.5?'// ANALYZING GAMEPLAY...':'CS2 AI COACH', rx, cy+s+22);
+
+    requestAnimationFrame(frame);
+  }
+
+  cnv.addEventListener('mousemove', e => {
+    const r=cnv.getBoundingClientRect();
+    mxR=(e.clientX-r.left)*(W/r.width);
+    myR=(e.clientY-r.top)*(H/r.height);
+  });
+  cnv.addEventListener('mouseleave', ()=>{ mxR=-1; myR=-1; });
+
+  frame();
+})();
+
+/* ════════════════ Matrix Rain ════════════════ */
+function triggerMatrix(dur) {
   if (document.getElementById('matrix-c')) return;
   const mc = document.createElement('canvas');
   mc.id = 'matrix-c';
-  mc.style.cssText = 'position:fixed;inset:0;z-index:8999;pointer-events:none;opacity:0;transition:opacity .4s';
+  mc.style.cssText = 'position:fixed;inset:0;z-index:8999;pointer-events:none;opacity:0;transition:opacity .5s';
   document.body.appendChild(mc);
   mc.width = innerWidth; mc.height = innerHeight;
   const mctx = mc.getContext('2d');
@@ -721,23 +878,28 @@ document.querySelector('.nav-logo').addEventListener('click', () => {
   requestAnimationFrame(() => mc.style.opacity = 1);
   const inv = setInterval(() => {
     mctx.fillStyle = 'rgba(5,5,10,0.06)';
-    mctx.fillRect(0, 0, mc.width, mc.height);
+    mctx.fillRect(0,0,mc.width,mc.height);
     mctx.font = '13px "Share Tech Mono",monospace';
-    drops.forEach((y, i) => {
-      const ch = chars[Math.floor(Math.random() * chars.length)];
-      mctx.fillStyle = drops[i] < 2 ? '#ffffff' : `rgba(0,245,255,${Math.random()*.5+.3})`;
-      mctx.fillText(ch, i * 14, y * 14);
-      if (y * 14 > mc.height && Math.random() > .975) drops[i] = 0;
-      else drops[i]++;
+    drops.forEach((y,i) => {
+      const ch = chars[Math.floor(Math.random()*chars.length)];
+      mctx.fillStyle = drops[i]<2 ? '#ffffff' : `rgba(0,245,255,${Math.random()*.5+.3})`;
+      mctx.fillText(ch, i*14, y*14);
+      if (y*14 > mc.height && Math.random()>.975) drops[i]=0; else drops[i]++;
     });
   }, 40);
   setTimeout(() => {
     clearInterval(inv);
-    mc.style.transition = 'opacity 1s';
-    mc.style.opacity = 0;
+    mc.style.transition='opacity 1s'; mc.style.opacity=0;
     setTimeout(() => mc.remove(), 1000);
-  }, 3500);
-});
+  }, dur || 3500);
+}
+// Auto-play briefly on first page visit
+if (!sessionStorage.getItem('ogz-m')) {
+  sessionStorage.setItem('ogz-m','1');
+  setTimeout(() => triggerMatrix(1800), 2400);
+}
+// Logo click = full replay
+document.getElementById('ogzLogo').addEventListener('click', () => triggerMatrix(3500));
 
 /* ════════════════ Click ripple + particle burst ════════════════ */
 addEventListener('click', e => {
