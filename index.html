@@ -305,7 +305,7 @@
       <div class="about-text reveal">
         <p data-i18n-html="about-p1">Меня зовут <mark>Давлат</mark> — разработчик, который строит продукты, решающие реальные проблемы. Специализируюсь на <mark>Python-бэкенде</mark>, <mark>React-фронтенде</mark> и построении <mark>ИИ-систем</mark>.</p>
         <p data-i18n="about-p2">Сейчас разрабатываю инструменты для анализа данных и игровых тренажёров. Постоянно совершенствую стек, чтобы создавать масштабируемые и быстрые продукты.</p>
-        <p class="ai-highlight" data-i18n-html="about-p3">Специализируюсь на глубокой интеграции <mark>LLM в архитектуру сервисов</mark>: настраиваю системные промпты, обрабатываю ответы моделей и строю <mark>AI-агентов</mark> на базе OpenAI и Groq API.</p>
+        <p class="ai-highlight" data-i18n-html="about-p3">Специализируюсь на создании масштабируемых веб-сервисов с интеграцией <mark>LLM-технологий</mark>. Проектирую архитектуру <mark>ИИ-агентов</mark>, используя OpenAI API и Groq API, и выстраиваю логику взаимодействия пользователей с моделями для решения прикладных задач.</p>
         <p class="stack-label" data-i18n="stack-label">// Стек</p>
         <div class="tech-grid">
           <span class="tech-item">Python</span>
@@ -452,6 +452,12 @@
         </div>
         <div><p class="contact-label">Email</p><p class="contact-value" data-i18n="write-me">Написать</p></div>
       </a>
+      <a href="https://t.me/Oguz0kk1" class="contact-card" target="_blank" rel="noopener">
+        <div class="contact-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.28 13.617l-2.947-.924c-.64-.203-.652-.64.135-.953l11.566-4.458c.537-.194 1.006.131.86.94z"/></svg>
+        </div>
+        <div><p class="contact-label">Telegram</p><p class="contact-value">@Oguz0kk1</p></div>
+      </a>
     </div>
   </section>
 
@@ -472,7 +478,7 @@ const LANGS = {
     'about-label':'01 / О себе','about-title':'Кто я',
     'about-p1':'Меня зовут <mark>Давлат</mark> — разработчик, который строит продукты, решающие реальные проблемы. Специализируюсь на <mark>Python-бэкенде</mark>, <mark>React-фронтенде</mark> и построении <mark>ИИ-систем</mark>.',
     'about-p2':'Сейчас разрабатываю инструменты для анализа данных и игровых тренажёров. Постоянно совершенствую стек, чтобы создавать масштабируемые и быстрые продукты.',
-    'about-p3':'Специализируюсь на глубокой интеграции <mark>LLM в архитектуру сервисов</mark>: настраиваю системные промпты, обрабатываю ответы моделей и строю <mark>AI-агентов</mark> на базе OpenAI и Groq API.',
+    'about-p3':'Специализируюсь на создании масштабируемых веб-сервисов с интеграцией <mark>LLM-технологий</mark>. Проектирую архитектуру <mark>ИИ-агентов</mark>, используя OpenAI API и Groq API, и выстраиваю логику взаимодействия пользователей с моделями для решения прикладных задач.',
     'stack-label':'// Стек',
     'skills-label':'02 / Навыки','skills-title':'Что я умею',
     'portfolio-label':'03 / Проекты','portfolio-title':'Что я строю',
@@ -494,7 +500,7 @@ const LANGS = {
     'about-label':'01 / About','about-title':'Who Am I',
     'about-p1':'My name is <mark>Davlat</mark> — a developer who builds products that solve real problems. I specialize in <mark>Python backend</mark>, <mark>React frontend</mark>, and building <mark>AI systems</mark>.',
     'about-p2':'Currently developing data analysis tools and gaming trainers. Constantly improving the tech stack to build scalable, fast products.',
-    'about-p3':'I specialize in deep <mark>LLM integration into service architecture</mark>: crafting system prompts, processing model outputs, and building <mark>AI agents</mark> on top of OpenAI and Groq APIs.',
+    'about-p3':'I build scalable web services with <mark>LLM technology integration</mark>. I architect <mark>AI agent systems</mark> using OpenAI and Groq APIs, designing the full logic of user-model interaction for real-world applied tasks.',
     'stack-label':'// Tech Stack',
     'skills-label':'02 / Skills','skills-title':'What I Know',
     'portfolio-label':'03 / Projects','portfolio-title':'What I Build',
@@ -603,22 +609,22 @@ setTimeout(restartTyping,2900);
 
 /* ════════════════ Text Scramble ════════════════ */
 class Scramble {
-  constructor(el){this.el=el;this.chars='!<>-_\\/[]{}—=+*^?#█▓▒░';}
+  constructor(el){this.el=el;this.chars='!<>-_\\/[]{}=+*^?#@&%$~';}
   run(text){
-    const L=text.length;
-    this.q=Array.from({length:L},(_,i)=>({to:text[i],start:Math.floor(Math.random()*20),end:Math.floor(Math.random()*20)+20,char:''}));
+    this._t=text; this._L=text.length;
+    this.q=Array.from({length:this._L},(_,i)=>({to:text[i],start:Math.floor(Math.random()*18),end:Math.floor(Math.random()*18)+18,char:''}));
     this.f=0; cancelAnimationFrame(this._raf); this._tick();
   }
   _tick(){
     let out='',done=0;
     for(const item of this.q){
       if(this.f>=item.end){out+=item.to;done++;}
-      else if(this.f>=item.start){item.char=Math.random()<.28?this.chars[Math.floor(Math.random()*this.chars.length)]:item.char;out+=`<span style="color:var(--cyan);opacity:.5">${item.char||'█'}</span>`;}
+      else if(this.f>=item.start){item.char=Math.random()<.28?this.chars[Math.floor(Math.random()*this.chars.length)]:item.char;out+=`<span style="color:var(--cyan);opacity:.5">${item.char||'?'}</span>`;}
       else out+=item.to;
     }
     this.el.innerHTML=out;
-    if(done<L){this.f++;this._raf=requestAnimationFrame(()=>this._tick());}
-    else this.el.textContent=text;
+    if(done<this._L){this.f++;this._raf=requestAnimationFrame(()=>this._tick());}
+    else this.el.textContent=this._t;
   }
 }
 
@@ -698,6 +704,59 @@ document.querySelectorAll('.btn').forEach(btn=>{
     btn.style.transition='transform .5s cubic-bezier(.16,1,.3,1)';
   });
   btn.addEventListener('mouseenter',()=>{ btn.style.transition='transform .1s'; });
+});
+
+/* ════════════════ Matrix Rain Easter Egg (click OGZ logo) ════════════════ */
+document.querySelector('.nav-logo').addEventListener('click', () => {
+  if (document.getElementById('matrix-c')) return;
+  const mc = document.createElement('canvas');
+  mc.id = 'matrix-c';
+  mc.style.cssText = 'position:fixed;inset:0;z-index:8999;pointer-events:none;opacity:0;transition:opacity .4s';
+  document.body.appendChild(mc);
+  mc.width = innerWidth; mc.height = innerHeight;
+  const mctx = mc.getContext('2d');
+  const cols  = Math.floor(innerWidth / 14);
+  const drops = new Array(cols).fill(0);
+  const chars = 'アウエオPYTHONFASTAPIREACTAIGROQOPENAI01LLM';
+  requestAnimationFrame(() => mc.style.opacity = 1);
+  const inv = setInterval(() => {
+    mctx.fillStyle = 'rgba(5,5,10,0.06)';
+    mctx.fillRect(0, 0, mc.width, mc.height);
+    mctx.font = '13px "Share Tech Mono",monospace';
+    drops.forEach((y, i) => {
+      const ch = chars[Math.floor(Math.random() * chars.length)];
+      mctx.fillStyle = drops[i] < 2 ? '#ffffff' : `rgba(0,245,255,${Math.random()*.5+.3})`;
+      mctx.fillText(ch, i * 14, y * 14);
+      if (y * 14 > mc.height && Math.random() > .975) drops[i] = 0;
+      else drops[i]++;
+    });
+  }, 40);
+  setTimeout(() => {
+    clearInterval(inv);
+    mc.style.transition = 'opacity 1s';
+    mc.style.opacity = 0;
+    setTimeout(() => mc.remove(), 1000);
+  }, 3500);
+});
+
+/* ════════════════ Click ripple + particle burst ════════════════ */
+addEventListener('click', e => {
+  if (e.target.closest('a,button,.nav-logo')) return;
+  const r = document.createElement('div');
+  r.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;width:4px;height:4px;border:1px solid #00f5ff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:9997;box-shadow:0 0 8px #00f5ff;`;
+  document.body.appendChild(r);
+  r.animate([
+    {width:'4px', height:'4px', opacity:1, borderWidth:'1px'},
+    {width:'130px',height:'130px',opacity:0, borderWidth:'0px'}
+  ], {duration:650, easing:'ease-out'}).onfinish = () => r.remove();
+  for (let i = 0; i < 10; i++) {
+    const p = document.createElement('div');
+    const ang = (i/10)*Math.PI*2, spd = Math.random()*3+1.5;
+    p.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;width:3px;height:3px;border-radius:50%;background:${Math.random()>.5?'#00f5ff':'#bf5fff'};box-shadow:0 0 4px currentColor;pointer-events:none;z-index:9996;`;
+    document.body.appendChild(p);
+    let px=0,py=0,op=1; const vx=Math.cos(ang)*spd, vy=Math.sin(ang)*spd;
+    (function step(){px+=vx;py+=vy+.12;op-=.03;p.style.transform=`translate(${px}px,${py}px)`;p.style.opacity=op;if(op>0)requestAnimationFrame(step);else p.remove();})();
+  }
 });
 
 /* ════════════════ Active nav on scroll ════════════════ */
