@@ -301,42 +301,80 @@ function init() {
   setInterval(()=>{ const el=wrap.querySelector('[data-wid="api"]'); if(el) el.textContent=90+Math.floor(Math.random()*60); },1200);
 
   /* ═══════════════════════════════════════════════════════
-     CLICK OVERLAY  — full-screen detail panel
+     CLICK OVERLAY  — full-screen detail panel (i18n-aware)
   ════════════════════════════════════════════════════════ */
-  const PROJECTS = {
+  const PROJECTS_DATA = {
     left: {
-      title: 'Fake News Detector',
-      subtitle: 'AI-powered credibility scanner',
+      ru: {
+        title: 'Fake News Detector',
+        subtitle: 'ИИ-сканер достоверности новостей',
+        desc: 'Telegram-бот для мгновенной проверки достоверности новостей. Анализирует источники, сравнивает факты через ИИ, выдаёт оценку правдивости с объяснением.',
+        githubLabel: '⌥ GitHub',
+        demoLabel:   '▶ Попробовать',
+      },
+      en: {
+        title: 'Fake News Detector',
+        subtitle: 'AI-powered credibility scanner',
+        desc: 'A Telegram bot that verifies news credibility in seconds. Analyzes sources, cross-checks facts via AI and gives a clear credibility score with explanation.',
+        githubLabel: '⌥ GitHub',
+        demoLabel:   '▶ Live Demo',
+      },
       color: '#00f5ff',
       accent: 'rgba(0,245,255,0.12)',
       border: 'rgba(0,245,255,0.30)',
-      stats: [
-        {label:'Accuracy',    value:'94.2%'},
-        {label:'Latency',     value:'~1.2s'},
-        {label:'Sources',     value:'142 DB'},
-        {label:'Uptime',      value:'99.8%'},
-      ],
+      stats: {
+        ru: [
+          {label:'Точность',  value:'94.2%'},
+          {label:'Задержка',  value:'~1.2s'},
+          {label:'Источники', value:'142 DB'},
+          {label:'Аптайм',    value:'99.8%'},
+        ],
+        en: [
+          {label:'Accuracy', value:'94.2%'},
+          {label:'Latency',  value:'~1.2s'},
+          {label:'Sources',  value:'142 DB'},
+          {label:'Uptime',   value:'99.8%'},
+        ],
+      },
       stack: ['Python','FastAPI','OpenAI GPT-4o','NLP','Aiogram'],
-      desc: 'Telegram-бот для мгновенной проверки достоверности новостей. Анализирует источники, сравнивает факты через ИИ, выдаёт оценку правдивости с объяснением.',
-      github: 'https://github.com',
-      demo:   'https://t.me',
+      github: 'https://github.com/Edvart08',
+      demo:   'https://t.me/NewsCheccker_bot',
     },
     right: {
-      title: 'CS2 AI Coach',
-      subtitle: 'Personal AI trainer for Counter-Strike 2',
+      ru: {
+        title: 'CS2 AI Coach',
+        subtitle: 'Персональный ИИ-тренер для CS2',
+        desc: 'Персональный ИИ-тренер для CS2. Анализирует геймплей, выявляет слабые места, даёт конкретные советы по улучшению позиционирования и прицеливания.',
+        githubLabel: '⌥ GitHub',
+        demoLabel:   '▶ Сайт',
+      },
+      en: {
+        title: 'CS2 AI Coach',
+        subtitle: 'Personal AI trainer for Counter-Strike 2',
+        desc: 'A personal AI trainer for CS2. Analyzes gameplay, identifies weak spots, and delivers concrete improvement tips on positioning and aim.',
+        githubLabel: '⌥ GitHub',
+        demoLabel:   '▶ Live Site',
+      },
       color: '#aa66ff',
       accent: 'rgba(170,102,255,0.12)',
       border: 'rgba(170,102,255,0.30)',
-      stats: [
-        {label:'Winrate boost', value:'+14.2%'},
-        {label:'Sessions',      value:'400+'},
-        {label:'Positions',     value:'1,247'},
-        {label:'Errors found',  value:'34/game'},
-      ],
+      stats: {
+        ru: [
+          {label:'Рост винрейта', value:'+14.2%'},
+          {label:'Сессий',        value:'400+'},
+          {label:'Позиций',       value:'1,247'},
+          {label:'Ошибок/игра',   value:'34'},
+        ],
+        en: [
+          {label:'Winrate boost', value:'+14.2%'},
+          {label:'Sessions',      value:'400+'},
+          {label:'Positions',     value:'1,247'},
+          {label:'Errors/game',   value:'34'},
+        ],
+      },
       stack: ['Python','Aiogram','Groq LLaMA-3','Redis','CV2'],
-      desc: 'Персональный ИИ-тренер для CS2. Анализирует геймплей, выявляет слабые места, даёт конкретные советы по улучшению позиционирования и прицеливания.',
-      github: 'https://github.com',
-      demo:   'https://t.me',
+      github: 'https://github.com/Edvart08',
+      demo:   'https://cs-coach.ru/',
     },
   };
 
@@ -370,9 +408,22 @@ function init() {
   let overlayOpen = false;
 
   function openOverlay(side) {
-    const p = PROJECTS[side];
-    overlayCard.style.border = `1px solid ${p.border}`;
-    overlayCard.style.boxShadow = `0 0 80px ${p.accent}, inset 0 0 60px ${p.accent}`;
+    const lang = window.currentLang || 'ru';
+    const raw  = PROJECTS_DATA[side];
+    const loc  = raw[lang];
+    const p = {
+      ...loc,
+      color:  raw.color,
+      accent: raw.accent,
+      border: raw.border,
+      stats:  raw.stats[lang],
+      stack:  raw.stack,
+      github: raw.github,
+      demo:   raw.demo,
+    };
+
+    overlayCard.style.border     = `1px solid ${p.border}`;
+    overlayCard.style.boxShadow  = `0 0 80px ${p.accent}, inset 0 0 60px ${p.accent}`;
 
     overlayCard.innerHTML = `
       <button id="ovClose" style="position:absolute;top:16px;right:20px;background:none;border:1px solid ${p.border};border-radius:6px;color:${p.color};font-family:'Share Tech Mono',monospace;font-size:0.70rem;letter-spacing:2px;padding:5px 12px;cursor:pointer;transition:all .2s;"
@@ -387,8 +438,8 @@ function init() {
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px;">
         ${p.stats.map(s=>`
           <div style="background:${p.accent};border:1px solid ${p.border};border-radius:8px;padding:12px 8px;text-align:center;">
-            <div style="color:${p.color};font-size:1.1rem;font-weight:700;letter-spacing:1px;">${s.value}</div>
-            <div style="color:rgba(180,200,220,0.55);font-size:0.50rem;letter-spacing:2px;margin-top:4px;">${s.label}</div>
+            <div style="color:${p.color};font-size:1.25rem;font-weight:700;letter-spacing:1px;">${s.value}</div>
+            <div style="color:rgba(180,200,220,0.70);font-size:0.62rem;letter-spacing:2px;margin-top:5px;text-transform:uppercase;">${s.label}</div>
           </div>`).join('')}
       </div>
 
@@ -402,11 +453,11 @@ function init() {
       <div style="display:flex;gap:14px;flex-wrap:wrap;">
         <a href="${p.github}" target="_blank" style="display:flex;align-items:center;gap:8px;background:${p.accent};border:1px solid ${p.border};color:${p.color};text-decoration:none;font-size:0.68rem;letter-spacing:2px;padding:10px 22px;border-radius:6px;transition:all .2s;"
           onmouseover="this.style.background='${p.border}'" onmouseout="this.style.background='${p.accent}'">
-          ⌥ GitHub
+          ${p.githubLabel}
         </a>
         <a href="${p.demo}" target="_blank" style="display:flex;align-items:center;gap:8px;background:transparent;border:1px solid ${p.border};color:${p.color};text-decoration:none;font-size:0.68rem;letter-spacing:2px;padding:10px 22px;border-radius:6px;transition:all .2s;"
           onmouseover="this.style.background='${p.accent}'" onmouseout="this.style.background='transparent'">
-          ▶ Live Demo
+          ${p.demoLabel}
         </a>
       </div>`;
 
