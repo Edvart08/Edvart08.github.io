@@ -406,8 +406,15 @@ function init() {
   document.addEventListener('keydown', e => { if(e.key==='Escape') closeOverlay(); });
 
   let overlayOpen = false;
+  let currentOverlaySide = null;
+
+  // expose re-render hook so applyLang can refresh overlay text
+  window.__overlayRerenderFn = () => {
+    if (overlayOpen && currentOverlaySide) openOverlay(currentOverlaySide);
+  };
 
   function openOverlay(side) {
+    currentOverlaySide = side;
     const lang = window.currentLang || 'ru';
     const raw  = PROJECTS_DATA[side];
     const loc  = raw[lang];
@@ -451,13 +458,9 @@ function init() {
       </div>
 
       <div style="display:flex;gap:14px;flex-wrap:wrap;">
-        <a href="${p.github}" target="_blank" style="display:flex;align-items:center;gap:8px;background:${p.accent};border:1px solid ${p.border};color:${p.color};text-decoration:none;font-size:0.68rem;letter-spacing:2px;padding:10px 22px;border-radius:6px;transition:all .2s;"
+        <a href="${p.demo}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:${p.accent};border:1px solid ${p.border};color:${p.color};text-decoration:none;font-size:0.72rem;letter-spacing:2px;padding:12px 28px;border-radius:6px;transition:all .2s;font-family:'Orbitron',sans-serif;"
           onmouseover="this.style.background='${p.border}'" onmouseout="this.style.background='${p.accent}'">
-          ${p.githubLabel}
-        </a>
-        <a href="${p.demo}" target="_blank" style="display:flex;align-items:center;gap:8px;background:transparent;border:1px solid ${p.border};color:${p.color};text-decoration:none;font-size:0.68rem;letter-spacing:2px;padding:10px 22px;border-radius:6px;transition:all .2s;"
-          onmouseover="this.style.background='${p.accent}'" onmouseout="this.style.background='transparent'">
-          ${p.demoLabel}
+          ▶ ${p.demoLabel}
         </a>
       </div>`;
 
@@ -477,6 +480,7 @@ function init() {
     overlayCard.style.transform = 'translateY(28px) scale(0.96)';
     setTimeout(() => { overlay.style.background='rgba(3,4,12,0.0)'; overlay.style.backdropFilter='blur(0px)'; }, 350);
     overlayOpen = false;
+    currentOverlaySide = null;
   }
 
   /* ═══════════════════════════════════════════════════════
