@@ -71,7 +71,9 @@
 
     /* ── Cursor ── */
     .cur-dot { position: fixed; width: 8px; height: 8px; background: var(--cyan); border-radius: 50%; pointer-events: none; z-index: 9999; box-shadow: 0 0 8px var(--cyan),0 0 20px var(--cyan); transform: translate(-50%,-50%); transition: transform 0.1s; }
+    .cur-ring { position: fixed; width: 28px; height: 28px; border: 1px solid rgba(0,245,255,0.5); border-radius: 50%; pointer-events: none; z-index: 9998; transform: translate(-50%,-50%); transition: width .2s, height .2s, opacity .2s; }
     body:has(a:hover, button:hover) .cur-dot { transform: translate(-50%,-50%) scale(2.5); }
+    body:has(a:hover, button:hover) .cur-ring { width: 50px; height: 50px; opacity: 0.4; }
 
     /* ── Nav ── */
     nav { position: fixed; top: 0; left: 0; right: 0; z-index: 500; padding: 20px 8%; display: flex; align-items: center; justify-content: space-between; backdrop-filter: blur(20px); background: rgba(5,5,10,0.65); border-bottom: 1px solid rgba(0,245,255,0.08); }
@@ -261,6 +263,7 @@
 
   <!-- Cursor -->
   <div class="cur-dot"  id="curDot"></div>
+  <div class="cur-ring" id="curRing"></div>
 
   <!-- Nav -->
   <nav>
@@ -603,9 +606,10 @@ const PS = Array.from({length: innerWidth<600?55:110}, ()=>new P());
 })();
 
 /* ════════════════ Cursor & mouse glow ════════════════ */
-const glow=document.getElementById('mouseGlow'), dot=document.getElementById('curDot');
-let mx=0,my=0;
+const glow=document.getElementById('mouseGlow'), dot=document.getElementById('curDot'), ring=document.getElementById('curRing');
+let mx=0,my=0,rx=0,ry=0;
 addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;dot.style.left=mx+'px';dot.style.top=my+'px';glow.style.left=mx+'px';glow.style.top=my+'px';});
+(function ar(){rx+=(mx-rx)*.14;ry+=(my-ry)*.14;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(ar);})();
 
 /* ════════════════ Typing ════════════════ */
 let typT=null,ri=0,ci=0,del=false;
