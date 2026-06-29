@@ -424,6 +424,12 @@
       <canvas id="nodeCanvas"></canvas>
       <p class="scanner-hint-bar" data-i18n="scanner-hint">// hover nodes to activate &nbsp;—&nbsp; FAKE NEWS DETECTOR &nbsp;/&nbsp; CS2 AI COACH</p>
     </div>
+    <div class="audit-container reveal" style="margin-top: 40px; padding: 40px; background: rgba(0, 245, 255, 0.03); border: 1px solid rgba(0, 245, 255, 0.1); border-radius: 12px;">
+    <h3 style="margin-bottom: 20px; font-family: 'Orbitron'; color: var(--cyan);">// AI Code Intelligence</h3>
+    <input type="text" id="repoInput" placeholder="Вставьте ссылку на GitHub репозиторий..." style="width: 100%; padding: 12px; background: #0c0c16; border: 1px solid var(--cyan); color: white; margin-bottom: 15px;">
+    <button id="runAudit" class="btn btn-primary">RUN AUDIT</button>
+    <div id="auditResults" style="margin-top: 20px; font-family: 'Share Tech Mono'; color: var(--text);"></div>
+</div>
 
     <div class="projects-grid">
       <div class="project-card reveal">
@@ -1321,5 +1327,19 @@ window.addEventListener('load', () => {
 });
 
 </script>
+  document.getElementById('runAudit').addEventListener('click', async () => {
+    const input = document.getElementById('repoInput').value;
+    const resultDiv = document.getElementById('auditResults');
+    
+    resultDiv.innerText = "> Initializing scan...";
+    
+    // Здесь будет вызов твоего FastAPI
+    // const response = await fetch('http://localhost:8000/analyze', { ... });
+    
+    // Пока заглушка для теста
+    setTimeout(() => {
+        resultDiv.innerText = `> Analysis complete for: ${input}\n> Complexity: Moderate\n> Issues found: 2 (unused imports, low test coverage)\n> Suggestion: Refactor class 'DataParser' for better performance.`;
+    }, 2000);
+});
 </body>
 </html>
