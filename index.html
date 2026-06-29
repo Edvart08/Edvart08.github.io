@@ -805,7 +805,7 @@ addEventListener('mousemove',e=>{
 /**
  * crystal-scanner.js
  * Standalone Three.js module for the Crystal Scanner section.
- * Inline version — no external file needed
+ * Usage: include via <script type=module src=crystal-scanner.js>
  */
 
 import * as THREE         from 'three';
@@ -1489,9 +1489,8 @@ function init() {
   });
 }
 
-/* Start after window fully loaded so GSAP CDN script is guaranteed ready */
+/* Wait for window load so GSAP CDN script is guaranteed ready */
 window.addEventListener('load', () => {
-  // Small rAF delay to let layout settle
   requestAnimationFrame(() => requestAnimationFrame(init));
 });
 
