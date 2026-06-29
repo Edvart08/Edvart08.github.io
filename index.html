@@ -90,7 +90,6 @@
     /* ── Hero ── */
     #hero { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 0 8%; padding-top: 80px; }
     .hero-tag { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 4px; color: var(--green); margin-bottom: 24px; opacity: 0; animation: fadeUp .7s ease 2s forwards; }
-    .hero-name { font-family: 'Orbitron', sans-serif; font-size: clamp(3.5rem,9vw,8rem); font-weight: 900; line-height: .95; color: #fff; margin-bottom: 16px; opacity: 0; animation: fadeUp .7s ease 2.2s forwards; }
     /* ── Rich glitch ── */
     .glitch { position: relative; display: inline-block; }
     .glitch::before, .glitch::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
@@ -107,35 +106,34 @@
       animation: glB 6s infinite 3.15s;
     }
     @keyframes glA {
-      0%,82%,100% { transform:translate(0); opacity:0; clip-path:polygon(0 0,100% 0,100% 38%,0 38%); }
+      0%,82%,100% { transform:translate(0); opacity:0; }
       84%  { transform:translate(-8px, 2px) skewX(-3deg); opacity:1; clip-path:polygon(0 5%,100% 0,100% 42%,0 38%); }
-      86%  { transform:translate(6px,-3px) skewX(2deg); opacity:.9; clip-path:polygon(0 0,100% 5%,100% 35%,0 40%); }
-      88%  { transform:translate(-12px,1px) skewX(-5deg); opacity:1; clip-path:polygon(2% 0,100% 2%,98% 40%,0 36%); }
+      86%  { transform:translate(6px,-3px) skewX(2deg); opacity:.9; }
+      88%  { transform:translate(-12px,1px) skewX(-5deg); opacity:1; }
       90%  { transform:translate(4px, 2px); opacity:.8; }
       92%  { transform:translate(-6px,-1px) skewX(3deg); opacity:1; }
       94%  { transform:translate(0); opacity:0; }
     }
     @keyframes glB {
-      0%,82%,100% { transform:translate(0); opacity:0; clip-path:polygon(0 62%,100% 62%,100% 100%,0 100%); }
+      0%,82%,100% { transform:translate(0); opacity:0; }
       84%  { transform:translate(10px,-2px) skewX(4deg); opacity:1; clip-path:polygon(0 60%,100% 64%,100% 100%,0 100%); }
-      86%  { transform:translate(-8px, 3px) skewX(-3deg); opacity:.9; clip-path:polygon(0 65%,100% 60%,100% 100%,2% 100%); }
+      86%  { transform:translate(-8px, 3px) skewX(-3deg); opacity:.9; }
       88%  { transform:translate(14px,-1px) skewX(6deg); opacity:1; }
       90%  { transform:translate(-5px, 2px); opacity:.85; }
       92%  { transform:translate(8px,-2px) skewX(-4deg); opacity:1; }
       94%  { transform:translate(0); opacity:0; }
     }
-    /* RGB split lives on ::before only — doesn't touch main element opacity */
     @keyframes glRGB {
       0%,82%,100% { filter:none; }
-      84%  { filter: drop-shadow(-6px 0 rgba(0,245,255,0.7)) drop-shadow(6px 0 rgba(255,45,120,0.7)); }
-      86%  { filter: drop-shadow(8px 0 rgba(0,245,255,0.5)) drop-shadow(-8px 0 rgba(255,45,120,0.5)); }
-      88%  { filter: drop-shadow(-10px 0 rgba(0,245,255,0.9)) drop-shadow(10px 0 rgba(255,45,120,0.9)) drop-shadow(0 0 20px rgba(0,245,255,0.4)); }
-      90%  { filter: drop-shadow(4px 0 rgba(0,245,255,0.4)) drop-shadow(-4px 0 rgba(255,45,120,0.4)); }
-      92%  { filter: drop-shadow(-6px 0 rgba(0,245,255,0.6)) drop-shadow(6px 0 rgba(255,45,120,0.6)); }
-      94%  { filter: none; }
+      84%  { filter: drop-shadow(-6px 0 rgba(0,245,255,0.8)) drop-shadow(6px 0 rgba(255,45,120,0.8)); }
+      87%  { filter: drop-shadow(10px 0 rgba(0,245,255,0.6)) drop-shadow(-10px 0 rgba(255,45,120,0.6)); }
+      90%  { filter: drop-shadow(-12px 0 rgba(0,245,255,1.0)) drop-shadow(12px 0 rgba(255,45,120,1.0)) drop-shadow(0 0 30px rgba(0,245,255,0.5)); }
+      93%  { filter: drop-shadow(6px 0 rgba(0,245,255,0.5)) drop-shadow(-6px 0 rgba(255,45,120,0.5)); }
+      96%  { filter: none; }
     }
-    /* Apply RGB glitch to hero-name AFTER fadeUp completes, via additional animation */
-    .glitch.active-glitch { animation: glRGB 6s infinite 3s; }
+    /* glRGB is added separately via animation-name, not replacing fadeUp */
+    .hero-name { font-family: 'Orbitron', sans-serif; font-size: clamp(3.5rem,9vw,8rem); font-weight: 900; line-height: .95; color: #fff; margin-bottom: 16px; opacity: 0; animation: fadeUp .7s ease 2.2s forwards; }
+    .hero-name.visible { opacity: 1; animation: glRGB 6s infinite 0s; }
     .hero-role { font-family: 'Orbitron', sans-serif; font-size: clamp(1rem,2.5vw,1.6rem); color: var(--cyan); text-shadow: 0 0 25px var(--cyan); margin-bottom: 28px; height: 2.2rem; display: flex; align-items: center; gap: 4px; opacity: 0; animation: fadeUp .7s ease 2.4s forwards; }
     .type-cursor { width: 2px; height: 1.3em; background: var(--cyan); animation: blink .7s step-end infinite; flex-shrink: 0; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
@@ -195,47 +193,32 @@
     .terminal-body pre { font-family: 'Share Tech Mono', monospace; font-size: .82rem; line-height: 1.9; white-space: pre-wrap; }
     .tk{color:var(--purple)} .tcl{color:var(--cyan)} .ts{color:var(--green)} .tf{color:#ffbd4f} .tc{color:var(--dim)}
 
-    /* ── Skills hex grid ── */
-    .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    /* ── Skills radar + cards ── */
+    .skills-layout { display: grid; grid-template-columns: 380px 1fr; gap: 60px; align-items: center; }
+    @media(max-width:1100px){ .skills-layout { grid-template-columns:1fr; } }
+    .skills-radar-wrap { position: relative; width: 100%; max-width: 380px; aspect-ratio: 1; }
+    #skillRadar { width: 100%; height: 100%; }
+    .skills-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .skill-card {
-      position: relative; padding: 22px 20px 18px;
+      padding: 20px 22px 16px; border-radius: 12px;
       background: rgba(0,245,255,0.03);
       border: 1px solid rgba(0,245,255,0.10);
-      border-radius: 12px;
-      overflow: hidden;
       transition: border-color .3s, background .3s, transform .3s;
-      cursor: default;
+      position: relative; overflow: hidden;
     }
-    .skill-card:hover { border-color: rgba(0,245,255,0.4); background: rgba(0,245,255,0.07); transform: translateY(-4px); }
-    .skill-card.ai { border-color: rgba(191,95,255,0.15); background: rgba(191,95,255,0.04); }
-    .skill-card.ai:hover { border-color: rgba(191,95,255,0.5); background: rgba(191,95,255,0.10); }
-    /* Animated fill bar at bottom */
-    .skill-card-fill {
-      position: absolute; bottom: 0; left: 0; height: 3px;
-      background: linear-gradient(90deg, var(--cyan), var(--purple));
-      width: 0; transition: width 1.4s cubic-bezier(.16,1,.3,1);
-    }
-    .skill-card.ai .skill-card-fill { background: linear-gradient(90deg, var(--purple), #ff79c6); }
-    .skill-card-fill.go { }
-    /* Top glow line */
-    .skill-card::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-      opacity: 0; transition: opacity .3s;
-    }
-    .skill-card.ai::before { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
-    .skill-card:hover::before { opacity: 1; }
-    .skill-card-name { font-family: 'Share Tech Mono', monospace; font-size: .88rem; color: var(--text); letter-spacing: 1px; margin-bottom: 10px; }
-    .skill-card.ai .skill-card-name { color: var(--purple); }
-    .skill-card-bar-wrap { height: 4px; background: rgba(0,245,255,0.08); border-radius: 2px; margin-bottom: 10px; position: relative; }
-    .skill-card.ai .skill-card-bar-wrap { background: rgba(191,95,255,0.10); }
-    .skill-card-bar { height: 100%; border-radius: 2px; width: 0; transition: width 1.3s cubic-bezier(.16,1,.3,1); background: linear-gradient(90deg, var(--cyan), var(--purple)); box-shadow: 0 0 8px var(--cyan); }
-    .skill-card.ai .skill-card-bar { background: linear-gradient(90deg, var(--purple), #ff79c6); box-shadow: 0 0 8px var(--purple); }
-    .skill-card-footer { display: flex; justify-content: space-between; align-items: center; }
-    .skill-card-pct { font-family: 'Orbitron', monospace; font-size: .80rem; color: var(--cyan); font-weight: 700; }
-    .skill-card.ai .skill-card-pct { color: var(--purple); }
-    .skill-card-tag { font-family: 'Share Tech Mono', monospace; font-size: .55rem; letter-spacing: 2px; color: rgba(0,245,255,0.35); text-transform: uppercase; }
-    .skill-card.ai .skill-card-tag { color: rgba(191,95,255,0.40); }
+    .skill-card:hover { border-color:rgba(0,245,255,0.45); background:rgba(0,245,255,0.08); transform:translateY(-4px); }
+    .skill-card.ai { border-color:rgba(191,95,255,0.15); background:rgba(191,95,255,0.03); }
+    .skill-card.ai:hover { border-color:rgba(191,95,255,0.5); background:rgba(191,95,255,0.09); }
+    .skill-card::after { content:''; position:absolute; bottom:0; left:0; height:2px; width:0; background:linear-gradient(90deg,var(--cyan),var(--purple)); transition:width 1.4s cubic-bezier(.16,1,.3,1); }
+    .skill-card.ai::after { background:linear-gradient(90deg,var(--purple),#ff79c6); }
+    .skill-card.loaded::after { width: var(--pct); }
+    .skill-card-name { font-family:'Share Tech Mono',monospace; font-size:.90rem; color:var(--text); letter-spacing:1px; margin-bottom:12px; }
+    .skill-card.ai .skill-card-name { color:var(--purple); }
+    .skill-card-row { display:flex; justify-content:space-between; align-items:center; }
+    .skill-card-pct { font-family:'Orbitron',monospace; font-size:1.15rem; font-weight:700; color:var(--cyan); }
+    .skill-card.ai .skill-card-pct { color:var(--purple); }
+    .skill-card-tag { font-family:'Share Tech Mono',monospace; font-size:.58rem; letter-spacing:2px; color:rgba(0,245,255,0.35); text-transform:uppercase; }
+    .skill-card.ai .skill-card-tag { color:rgba(191,95,255,0.40); }
 
     /* ── Portfolio ── */
     .projects-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(340px,1fr)); gap: 28px; perspective: 1200px; }
@@ -318,9 +301,9 @@
     .hero-visual {
       position: absolute; right: 6%; top: 50%; transform: translateY(-50%);
       width: clamp(280px, 36vw, 520px); aspect-ratio: 1;
-      pointer-events: none; z-index: 0;
+      pointer-events: auto; z-index: 2; cursor: crosshair;
     }
-    #heroGlobe { width: 100%; height: 100%; }
+    #heroGlobe { width: 100%; height: 100%; display: block; }
     @media(max-width:900px){ .hero-visual { display: none; } }
     #contact { text-align: center; }
     #contact .section-label { justify-content: center; }
@@ -518,46 +501,45 @@
       <p class="section-label" data-i18n="skills-label">02 / Навыки</p>
       <h2 class="section-title scramble-title" data-i18n="skills-title">Что я умею</h2>
     </div>
-    <div class="skills-grid">
-      <div class="skill-card reveal" data-pct="90">
-        <div class="skill-card-name">Python</div>
-        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
-        <div class="skill-card-footer"><span class="skill-card-pct">90%</span><span class="skill-card-tag">Backend</span></div>
+    <div class="skills-layout">
+      <!-- Radar chart -->
+      <div class="skills-radar-wrap reveal">
+        <canvas id="skillRadar"></canvas>
       </div>
-      <div class="skill-card reveal" data-pct="85">
-        <div class="skill-card-name">FastAPI</div>
-        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
-        <div class="skill-card-footer"><span class="skill-card-pct">85%</span><span class="skill-card-tag">REST API</span></div>
-      </div>
-      <div class="skill-card ai reveal" data-pct="92">
-        <div class="skill-card-name">LLM Integration</div>
-        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
-        <div class="skill-card-footer"><span class="skill-card-pct">92%</span><span class="skill-card-tag">AI Core</span></div>
-      </div>
-      <div class="skill-card ai reveal" data-pct="88">
-        <div class="skill-card-name">Prompt Engineering</div>
-        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
-        <div class="skill-card-footer"><span class="skill-card-pct">88%</span><span class="skill-card-tag">AI Core</span></div>
-      </div>
-      <div class="skill-card reveal" data-pct="88">
-        <div class="skill-card-name">Aiogram</div>
-        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
-        <div class="skill-card-footer"><span class="skill-card-pct">88%</span><span class="skill-card-tag">Telegram</span></div>
-      </div>
-      <div class="skill-card reveal" data-pct="78">
-        <div class="skill-card-name">React</div>
-        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
-        <div class="skill-card-footer"><span class="skill-card-pct">78%</span><span class="skill-card-tag">Frontend</span></div>
-      </div>
-      <div class="skill-card reveal" data-pct="76">
-        <div class="skill-card-name">Docker</div>
-        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
-        <div class="skill-card-footer"><span class="skill-card-pct">76%</span><span class="skill-card-tag">DevOps</span></div>
-      </div>
-      <div class="skill-card reveal" data-pct="72">
-        <div class="skill-card-name">PostgreSQL</div>
-        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
-        <div class="skill-card-footer"><span class="skill-card-pct">72%</span><span class="skill-card-tag">Database</span></div>
+      <!-- Skill cards -->
+      <div class="skills-cards">
+        <div class="skill-card reveal" data-pct="90" style="--pct:90%">
+          <div class="skill-card-name">Python</div>
+          <div class="skill-card-row"><span class="skill-card-pct">90%</span><span class="skill-card-tag">Backend</span></div>
+        </div>
+        <div class="skill-card ai reveal" data-pct="92" style="--pct:92%">
+          <div class="skill-card-name">LLM Integration</div>
+          <div class="skill-card-row"><span class="skill-card-pct">92%</span><span class="skill-card-tag">AI Core</span></div>
+        </div>
+        <div class="skill-card reveal" data-pct="85" style="--pct:85%">
+          <div class="skill-card-name">FastAPI</div>
+          <div class="skill-card-row"><span class="skill-card-pct">85%</span><span class="skill-card-tag">REST API</span></div>
+        </div>
+        <div class="skill-card ai reveal" data-pct="88" style="--pct:88%">
+          <div class="skill-card-name">Prompt Engineering</div>
+          <div class="skill-card-row"><span class="skill-card-pct">88%</span><span class="skill-card-tag">AI Core</span></div>
+        </div>
+        <div class="skill-card reveal" data-pct="88" style="--pct:88%">
+          <div class="skill-card-name">Aiogram</div>
+          <div class="skill-card-row"><span class="skill-card-pct">88%</span><span class="skill-card-tag">Telegram</span></div>
+        </div>
+        <div class="skill-card reveal" data-pct="78" style="--pct:78%">
+          <div class="skill-card-name">React</div>
+          <div class="skill-card-row"><span class="skill-card-pct">78%</span><span class="skill-card-tag">Frontend</span></div>
+        </div>
+        <div class="skill-card reveal" data-pct="76" style="--pct:76%">
+          <div class="skill-card-name">Docker</div>
+          <div class="skill-card-row"><span class="skill-card-pct">76%</span><span class="skill-card-tag">DevOps</span></div>
+        </div>
+        <div class="skill-card reveal" data-pct="72" style="--pct:72%">
+          <div class="skill-card-name">PostgreSQL</div>
+          <div class="skill-card-row"><span class="skill-card-pct">72%</span><span class="skill-card-tag">Database</span></div>
+        </div>
       </div>
     </div>
   </section>
@@ -993,11 +975,15 @@ function type(){
 }
 function restartTyping(){clearTimeout(typT);ri=0;ci=0;del=false;typEl.textContent='';typT=setTimeout(type,200);}
 setTimeout(restartTyping,2900);
-// Add glitch filter after name fades in
+// Lock opacity:1 after fadeUp, then enable glitch filter
 setTimeout(() => {
-  const gEl = document.querySelector('.hero-name.glitch');
-  if (gEl) gEl.classList.add('active-glitch');
-}, 3200);
+  const el = document.querySelector('.hero-name.glitch');
+  if (!el) return;
+  el.style.opacity = '1';           // lock — never goes back to 0
+  el.style.animation = 'none';      // kill fadeUp (already done)
+  // tiny reflow, then start glRGB
+  requestAnimationFrame(() => el.classList.add('visible'));
+}, 3100);
 
 /* ════════════════ Text Scramble ════════════════ */
 class Scramble {
@@ -1080,20 +1066,142 @@ new IntersectionObserver(entries=>{
   }, 1000);
 })();
 
-/* ════════════════ Skill cards ════════════════ */
-let skillsDone=false;
-new IntersectionObserver(entries=>{
-  if(entries[0].isIntersecting&&!skillsDone){
-    skillsDone=true;
-    document.querySelectorAll('.skill-card').forEach((card,i)=>{
-      const pct = +card.dataset.pct;
-      setTimeout(()=>{
-        const bar = card.querySelector('.skill-card-bar');
-        if(bar) bar.style.width = pct+'%';
-      }, i*100);
-    });
+/* ════════════════ Skills radar + cards ════════════════ */
+(function(){
+  const SKILLS = [
+    { label:'Python',      pct:90, color:'0,245,255' },
+    { label:'LLM / AI',    pct:92, color:'191,95,255' },
+    { label:'FastAPI',     pct:85, color:'0,245,255' },
+    { label:'Prompt Eng.', pct:88, color:'191,95,255' },
+    { label:'Aiogram',     pct:88, color:'0,245,255' },
+    { label:'React',       pct:78, color:'0,245,255' },
+    { label:'Docker',      pct:76, color:'0,255,136' },
+    { label:'PostgreSQL',  pct:72, color:'0,255,136' },
+  ];
+  const N = SKILLS.length;
+
+  const rc = document.getElementById('skillRadar');
+  if (!rc) return;
+  const rx = rc.getContext('2d');
+  let RW, RH;
+  const setSize = () => { RW = rc.width = rc.offsetWidth * Math.min(devicePixelRatio,2); RH = rc.height = rc.offsetHeight * Math.min(devicePixelRatio,2); };
+  setSize(); new ResizeObserver(setSize).observe(rc);
+
+  let animated = false, animPct = new Array(N).fill(0), targetPct = new Array(N).fill(0);
+  let radarT = 0;
+
+  function drawRadar(t) {
+    rx.clearRect(0, 0, RW, RH);
+    const cx = RW/2, cy = RH/2;
+    const maxR = Math.min(RW, RH) * 0.38;
+
+    // Background grid rings
+    for (let ring = 1; ring <= 4; ring++) {
+      const r = maxR * ring / 4;
+      rx.beginPath();
+      for (let i = 0; i < N; i++) {
+        const a = (i/N)*Math.PI*2 - Math.PI/2;
+        const x = cx + r*Math.cos(a), y = cy + r*Math.sin(a);
+        i === 0 ? rx.moveTo(x,y) : rx.lineTo(x,y);
+      }
+      rx.closePath();
+      rx.strokeStyle = `rgba(0,245,255,${ring===4?0.15:0.07})`;
+      rx.lineWidth = ring === 4 ? 1 : 0.5;
+      rx.stroke();
+      // Ring label
+      rx.font = `${Math.round(9 * RW/700)}px 'Share Tech Mono',monospace`;
+      rx.fillStyle = 'rgba(0,245,255,0.22)';
+      rx.textAlign = 'right';
+      rx.fillText(`${ring*25}%`, cx - 4, cy - r + 4);
+    }
+
+    // Spoke lines
+    for (let i = 0; i < N; i++) {
+      const a = (i/N)*Math.PI*2 - Math.PI/2;
+      rx.beginPath();
+      rx.moveTo(cx, cy);
+      rx.lineTo(cx + maxR*Math.cos(a), cy + maxR*Math.sin(a));
+      rx.strokeStyle = 'rgba(0,245,255,0.12)';
+      rx.lineWidth = 0.5; rx.stroke();
+    }
+
+    // Pulsing center dot
+    const pls = 0.5 + 0.5*Math.sin(t*3);
+    rx.beginPath(); rx.arc(cx, cy, 4 + pls*2, 0, Math.PI*2);
+    rx.fillStyle = `rgba(0,245,255,${0.6+pls*0.4})`; rx.fill();
+
+    // Filled radar shape
+    rx.beginPath();
+    for (let i = 0; i < N; i++) {
+      const a = (i/N)*Math.PI*2 - Math.PI/2;
+      const r = maxR * animPct[i] / 100;
+      const x = cx + r*Math.cos(a), y = cy + r*Math.sin(a);
+      i === 0 ? rx.moveTo(x,y) : rx.lineTo(x,y);
+    }
+    rx.closePath();
+    // Animated gradient fill
+    const grad = rx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+    grad.addColorStop(0, `rgba(191,95,255,${0.30 + pls*0.08})`);
+    grad.addColorStop(0.5, `rgba(0,245,255,0.18)`);
+    grad.addColorStop(1, `rgba(0,245,255,0.05)`);
+    rx.fillStyle = grad; rx.fill();
+    rx.strokeStyle = `rgba(0,245,255,${0.75 + pls*0.25})`;
+    rx.lineWidth = 2; rx.stroke();
+
+    // Node dots on shape
+    for (let i = 0; i < N; i++) {
+      const a = (i/N)*Math.PI*2 - Math.PI/2;
+      const r = maxR * animPct[i] / 100;
+      const x = cx + r*Math.cos(a), y = cy + r*Math.sin(a);
+      rx.beginPath(); rx.arc(x, y, 5, 0, Math.PI*2);
+      rx.fillStyle = SKILLS[i].pct > 88 ? `rgba(191,95,255,0.9)` : `rgba(0,245,255,0.85)`;
+      rx.fill();
+      rx.beginPath(); rx.arc(x, y, 9, 0, Math.PI*2);
+      rx.fillStyle = SKILLS[i].pct > 88 ? `rgba(191,95,255,0.15)` : `rgba(0,245,255,0.12)`;
+      rx.fill();
+    }
+
+    // Spoke labels
+    const labelR = maxR * 1.18;
+    rx.font = `bold ${Math.round(11 * RW/700)}px 'Share Tech Mono',monospace`;
+    rx.textAlign = 'center';
+    for (let i = 0; i < N; i++) {
+      const a = (i/N)*Math.PI*2 - Math.PI/2;
+      const x = cx + labelR*Math.cos(a), y = cy + labelR*Math.sin(a) + 4;
+      rx.fillStyle = SKILLS[i].pct > 88 ? `rgba(191,95,255,0.9)` : `rgba(0,245,255,0.85)`;
+      rx.fillText(SKILLS[i].label, x, y);
+    }
   }
-},{threshold:.2}).observe(document.getElementById('skills'));
+
+  let radarRunning = false;
+  function startRadar() {
+    if (radarRunning) return;
+    radarRunning = true;
+    targetPct = SKILLS.map(s => s.pct);
+    const start = performance.now();
+    (function rl(now){
+      requestAnimationFrame(rl);
+      radarT = (now - start) / 1000;
+      // Ease in
+      const prog = Math.min(1, radarT / 1.4);
+      const ease = 1 - Math.pow(1-prog, 3);
+      for (let i=0;i<N;i++) animPct[i] = targetPct[i] * ease;
+      drawRadar(radarT);
+    })(start);
+  }
+
+  let skillsDone = false;
+  new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && !skillsDone) {
+      skillsDone = true;
+      startRadar();
+      // Animate card bottom bars
+      document.querySelectorAll('.skill-card').forEach((card, i) => {
+        setTimeout(() => card.classList.add('loaded'), i * 100 + 200);
+      });
+    }
+  }, {threshold:.2}).observe(document.getElementById('skills'));
+})();
 
 /* ════════════════ 3D Card Tilt ════════════════ */
 document.querySelectorAll('.project-card').forEach(card=>{
