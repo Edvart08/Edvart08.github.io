@@ -91,12 +91,52 @@
     #hero { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 0 8%; padding-top: 80px; }
     .hero-tag { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 4px; color: var(--green); margin-bottom: 24px; opacity: 0; animation: fadeUp .7s ease 2s forwards; }
     .hero-name { font-family: 'Orbitron', sans-serif; font-size: clamp(3.5rem,9vw,8rem); font-weight: 900; line-height: .95; color: #fff; margin-bottom: 16px; opacity: 0; animation: fadeUp .7s ease 2.2s forwards; }
-    .glitch { position: relative; }
+    /* ── Rich glitch ── */
+    .glitch { position: relative; display: inline-block; }
     .glitch::before, .glitch::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .glitch::before { color: var(--cyan); clip-path: polygon(0 20%,100% 20%,100% 45%,0 45%); animation: glT 5s infinite 3s; text-shadow: -3px 0 var(--cyan); }
-    .glitch::after  { color: var(--pink); clip-path: polygon(0 60%,100% 60%,100% 80%,0 80%); animation: glB 5s infinite 3s; text-shadow: 3px 0 var(--pink); }
-    @keyframes glT { 0%,88%,100%{transform:translate(0);opacity:1} 90%{transform:translate(-5px,1px)} 92%{transform:translate(5px,-1px)} 94%{transform:translate(-3px,2px);opacity:.8} }
-    @keyframes glB { 0%,88%,100%{transform:translate(0);opacity:1} 91%{transform:translate(5px,-1px)} 93%{transform:translate(-5px,1px)} 95%{transform:translate(3px,-2px);opacity:.7} }
+    /* Cyan layer — clips top third, drifts left */
+    .glitch::before {
+      color: var(--cyan);
+      text-shadow: -4px 0 var(--cyan), 0 0 20px var(--cyan);
+      clip-path: polygon(0 0, 100% 0, 100% 38%, 0 38%);
+      animation: glA 6s infinite 3s;
+    }
+    /* Pink layer — clips bottom third, drifts right */
+    .glitch::after {
+      color: var(--pink);
+      text-shadow: 4px 0 var(--pink), 0 0 20px var(--pink);
+      clip-path: polygon(0 62%, 100% 62%, 100% 100%, 0 100%);
+      animation: glB 6s infinite 3.15s;
+    }
+    @keyframes glA {
+      0%,82%,100% { transform:translate(0); opacity:0; clip-path:polygon(0 0,100% 0,100% 38%,0 38%); }
+      84%  { transform:translate(-8px, 2px) skewX(-3deg); opacity:1; clip-path:polygon(0 5%,100% 0,100% 42%,0 38%); }
+      86%  { transform:translate(6px,-3px) skewX(2deg);  opacity:.9; clip-path:polygon(0 0,100% 5%,100% 35%,0 40%); }
+      88%  { transform:translate(-12px,1px) skewX(-5deg); opacity:1; clip-path:polygon(2% 0,100% 2%,98% 40%,0 36%); }
+      90%  { transform:translate(4px, 2px); opacity:.8; clip-path:polygon(0 0,100% 0,100% 38%,0 38%); }
+      92%  { transform:translate(-6px,-1px) skewX(3deg); opacity:1; }
+      94%  { transform:translate(0); opacity:0; }
+    }
+    @keyframes glB {
+      0%,82%,100% { transform:translate(0); opacity:0; clip-path:polygon(0 62%,100% 62%,100% 100%,0 100%); }
+      84%  { transform:translate(10px,-2px) skewX(4deg); opacity:1; clip-path:polygon(0 60%,100% 64%,100% 100%,0 100%); }
+      86%  { transform:translate(-8px, 3px) skewX(-3deg); opacity:.9; clip-path:polygon(0 65%,100% 60%,100% 100%,2% 100%); }
+      88%  { transform:translate(14px,-1px) skewX(6deg); opacity:1; clip-path:polygon(0 62%,100% 62%,100% 98%,0 100%); }
+      90%  { transform:translate(-5px, 2px); opacity:.85; }
+      92%  { transform:translate(8px,-2px) skewX(-4deg); opacity:1; }
+      94%  { transform:translate(0); opacity:0; }
+    }
+    /* RGB color split pulse on the main text during glitch */
+    @keyframes glRGB {
+      0%,82%,100% { text-shadow: none; }
+      84%  { text-shadow: -6px 0 rgba(0,245,255,0.7), 6px 0 rgba(255,45,120,0.7), 0 0 30px rgba(255,255,255,0.3); }
+      86%  { text-shadow: 8px 0 rgba(0,245,255,0.5), -8px 0 rgba(255,45,120,0.5); }
+      88%  { text-shadow: -10px 0 rgba(0,245,255,0.8), 10px 0 rgba(255,45,120,0.8), 0 0 50px rgba(0,245,255,0.2); }
+      90%  { text-shadow: 4px 0 rgba(0,245,255,0.4), -4px 0 rgba(255,45,120,0.4); }
+      92%  { text-shadow: -6px 0 rgba(0,245,255,0.6), 6px 0 rgba(255,45,120,0.6); }
+      94%  { text-shadow: none; }
+    }
+    .glitch { animation: glRGB 6s infinite 3s; }
     .hero-role { font-family: 'Orbitron', sans-serif; font-size: clamp(1rem,2.5vw,1.6rem); color: var(--cyan); text-shadow: 0 0 25px var(--cyan); margin-bottom: 28px; height: 2.2rem; display: flex; align-items: center; gap: 4px; opacity: 0; animation: fadeUp .7s ease 2.4s forwards; }
     .type-cursor { width: 2px; height: 1.3em; background: var(--cyan); animation: blink .7s step-end infinite; flex-shrink: 0; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
@@ -752,22 +792,32 @@ class Node {
   }
   step(dt) {
     this.pulse += dt * 1.8;
-    // Mouse repulsion
+    // Mouse repulsion (softer force)
     const dx = this.x - mouseX, dy = this.y - mouseY;
     const dist = Math.sqrt(dx*dx + dy*dy);
-    if (dist < 120 && dist > 0) {
-      const force = (120 - dist) / 120 * 0.8;
+    if (dist < 140 && dist > 0) {
+      const force = (140 - dist) / 140 * 0.5;
       this.vx += (dx / dist) * force;
       this.vy += (dy / dist) * force;
     }
+    // Speed cap — never let particles fly away too fast
+    const spd = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+    if (spd > 2.5) { this.vx = this.vx/spd*2.5; this.vy = this.vy/spd*2.5; }
     // Damping
-    this.vx *= 0.985; this.vy *= 0.985;
+    this.vx *= 0.978; this.vy *= 0.978;
     this.x += this.vx; this.y += this.vy;
-    // Wrap
-    if (this.x < -10) this.x = W + 10;
-    else if (this.x > W + 10) this.x = -10;
-    if (this.y < -10) this.y = H + 10;
-    else if (this.y > H + 10) this.y = -10;
+    // Elastic soft-border: push back when near edges instead of teleporting
+    const margin = 60;
+    if (this.x < margin)      this.vx += (margin - this.x) * 0.04;
+    if (this.x > W - margin)  this.vx -= (this.x - (W - margin)) * 0.04;
+    if (this.y < margin)      this.vy += (margin - this.y) * 0.04;
+    if (this.y > H - margin)  this.vy -= (this.y - (H - margin)) * 0.04;
+    // Hard reset only if somehow way outside (shouldn't happen now)
+    if (this.x < -200 || this.x > W+200 || this.y < -200 || this.y > H+200) {
+      this.x = W*0.2 + Math.random()*W*0.6;
+      this.y = H*0.2 + Math.random()*H*0.6;
+      this.vx = (Math.random()-0.5)*0.4; this.vy = (Math.random()-0.5)*0.4;
+    }
   }
   draw() {
     const glow = 0.5 + 0.5 * Math.sin(this.pulse);
@@ -972,11 +1022,11 @@ document.querySelectorAll('.btn').forEach(btn=>{
 /* ════════════════ Matrix Rain ════════════════ */
 function triggerMatrix(dur) {
   const existing = document.getElementById('matrix-c');
-  if (existing) return; // already running
+  if (existing) return;
 
   const mc = document.createElement('canvas');
   mc.id = 'matrix-c';
-  mc.style.cssText = 'position:fixed;inset:0;z-index:8999;pointer-events:none;opacity:0;transition:opacity 1.8s ease';
+  mc.style.cssText = 'position:fixed;inset:0;z-index:8999;pointer-events:none;opacity:0;transition:opacity 2.2s ease';
   document.body.appendChild(mc);
   mc.width = innerWidth; mc.height = innerHeight;
   const mctx = mc.getContext('2d');
@@ -984,7 +1034,7 @@ function triggerMatrix(dur) {
   const drops = new Array(cols).fill(1);
   const chars = 'アウエオPYTHONFASTAPIREACTAIGROQOPENAI01LLM';
 
-  // fade IN over 1.8s
+  // Fade IN slowly — 2.2s
   requestAnimationFrame(() => { mc.style.opacity = 1; });
 
   const inv = setInterval(() => {
@@ -1000,38 +1050,44 @@ function triggerMatrix(dur) {
     });
   }, 40);
 
-  // fade OUT — long, graceful 2.5s transition
+  // Keep drawing for 'dur', then start a very long graceful fade
   setTimeout(() => {
     clearInterval(inv);
-    mc.style.transition = 'opacity 2.5s ease';
-    mc.style.opacity = '0';
-    setTimeout(() => mc.remove(), 2600);
+    // Continue drawing but fading — use requestAnimationFrame fade
+    let opacity = 1;
+    const fadeDuration = 4500; // 4.5s fade
+    const fadeStart = performance.now();
+    (function fadeStep(now) {
+      opacity = 1 - (now - fadeStart) / fadeDuration;
+      if (opacity > 0) {
+        mc.style.opacity = Math.max(0, opacity).toFixed(3);
+        requestAnimationFrame(fadeStep);
+      } else {
+        mc.style.opacity = '0';
+        setTimeout(() => mc.remove(), 200);
+      }
+    })(performance.now());
   }, dur);
 }
 
-function fadeOutMatrix() {
-  const mc = document.getElementById('matrix-c');
-  if (!mc) return;
-  mc.style.transition = 'opacity 2.5s ease';
-  mc.style.opacity = '0';
-  setTimeout(() => mc.remove(), 2600);
-}
+document.getElementById('ogzLogo').addEventListener('click', () => {
+  const old = document.getElementById('matrix-c');
+  if (old) {
+    // graceful hand-off: fade current out over 1.8s, then start new
+    let op = parseFloat(old.style.opacity) || 1;
+    const fadeOld = setInterval(() => {
+      op -= 0.04; old.style.opacity = Math.max(0, op).toFixed(2);
+      if (op <= 0) { clearInterval(fadeOld); old.remove(); triggerMatrix(4000); }
+    }, 40);
+  } else {
+    triggerMatrix(4000);
+  }
+});
 
 if (!sessionStorage.getItem('ogz-m')) {
   sessionStorage.setItem('ogz-m', '1');
   setTimeout(() => triggerMatrix(3500), 2400);
 }
-document.getElementById('ogzLogo').addEventListener('click', () => {
-  const old = document.getElementById('matrix-c');
-  if (old) {
-    // fade out existing then start new
-    old.style.transition = 'opacity 1.0s ease';
-    old.style.opacity = '0';
-    setTimeout(() => { old.remove(); triggerMatrix(4000); }, 1100);
-  } else {
-    triggerMatrix(4000);
-  }
-});
 
 /* ════════════════ Click ripple ════════════════ */
 addEventListener('click', e => {
@@ -1276,202 +1332,224 @@ addEventListener('click', e => {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') runBtn.click(); });
 })();
 
-/* ════════════════ Hero Globe ════════════════ */
+/* ════════════════ Hero Visual — AI Neural Core ════════════════ */
 (function(){
   const gc = document.getElementById('heroGlobe');
   if (!gc) return;
   const gx = gc.getContext('2d');
-  let GW, GH, gMx = 0, gMy = 0, globeRotY = 0, globeRotX = 0.3;
+  let GW, GH;
 
   const setSize = () => {
     GW = gc.width  = gc.offsetWidth  * Math.min(devicePixelRatio, 2);
     GH = gc.height = gc.offsetHeight * Math.min(devicePixelRatio, 2);
   };
-  setSize(); new ResizeObserver(setSize).observe(gc);
+  setSize();
+  new ResizeObserver(setSize).observe(gc);
 
-  gc.parentElement.addEventListener('mousemove', e => {
+  let gmx = GW/2, gmy = GH/2; // mouse in canvas coords
+  let hoveredNode = -1;
+  let clickedNode = -1;
+  let clickTime = 0;
+
+  gc.addEventListener('mousemove', e => {
     const r = gc.getBoundingClientRect();
-    gMx = (e.clientX - r.left - r.width/2)  / (r.width/2);
-    gMy = (e.clientY - r.top  - r.height/2) / (r.height/2);
+    const dpr = Math.min(devicePixelRatio, 2);
+    gmx = (e.clientX - r.left) * dpr;
+    gmy = (e.clientY - r.top)  * dpr;
   });
-  gc.parentElement.addEventListener('mouseleave', () => { gMx = 0; gMy = 0; });
+  gc.addEventListener('mouseleave', () => { gmx = -9999; gmy = -9999; hoveredNode = -1; });
+  gc.addEventListener('click', () => {
+    if (hoveredNode >= 0) { clickedNode = hoveredNode; clickTime = performance.now(); }
+  });
+  gc.style.cursor = 'crosshair';
 
-  // 3D point projection
-  const project = (x, y, z, fov = 900) => {
-    const scale = fov / (fov + z);
-    return { x: x * scale + GW/2, y: y * scale + GH/2, scale };
-  };
-
-  // Rotate point around Y then X
-  const rotY = (p, a) => ({ x: p.x*Math.cos(a) + p.z*Math.sin(a), y: p.y, z: -p.x*Math.sin(a) + p.z*Math.cos(a) });
-  const rotX = (p, a) => ({ x: p.x, y: p.y*Math.cos(a) - p.z*Math.sin(a), z: p.y*Math.sin(a) + p.z*Math.cos(a) });
-
-  const R = Math.min(GW, GH) * 0.30;  // sphere radius in canvas px
-
-  // Generate dots on sphere surface (latitude/longitude grid)
-  const dots = [];
-  for (let lat = -80; lat <= 80; lat += 18) {
-    for (let lon = 0; lon < 360; lon += Math.max(8, Math.round(18 / Math.cos(lat * Math.PI/180)))) {
-      const phi = lat * Math.PI/180, theta = lon * Math.PI/180;
-      dots.push({
-        x: R * Math.cos(phi) * Math.cos(theta),
-        y: R * Math.sin(phi),
-        z: R * Math.cos(phi) * Math.sin(theta),
-        hot: Math.random() > 0.88,
-        phase: Math.random() * Math.PI * 2,
-      });
-    }
-  }
-
-  // Orbiting rings
-  const rings = [
-    { tilt: 0.4,  speed: 0.008, radius: R * 1.32, thickness: 1.2, color: '0,245,255',   opacity: 0.35, phase: 0 },
-    { tilt: 1.1,  speed:-0.005, radius: R * 1.55, thickness: 0.8, color: '191,95,255',  opacity: 0.25, phase: 1 },
-    { tilt: 0.75, speed: 0.012, radius: R * 1.75, thickness: 0.6, color: '0,255,136',   opacity: 0.18, phase: 2 },
+  // ── Node definitions ──
+  const NODES = [
+    { label:'GPT-4o',  x:.50, y:.22, r:18, c:'0,245,255',  hot:true,  desc:'OpenAI API' },
+    { label:'Python',  x:.18, y:.38, r:15, c:'0,245,255',  hot:false, desc:'Backend' },
+    { label:'FastAPI', x:.82, y:.35, r:14, c:'0,245,255',  hot:false, desc:'REST API' },
+    { label:'LLM',     x:.50, y:.50, r:22, c:'191,95,255', hot:true,  desc:'Core Engine' },
+    { label:'Groq',    x:.22, y:.62, r:13, c:'191,95,255', hot:false, desc:'Inference' },
+    { label:'Redis',   x:.78, y:.60, r:12, c:'0,255,136',  hot:false, desc:'Cache' },
+    { label:'Agents',  x:.50, y:.78, r:16, c:'191,95,255', hot:true,  desc:'AI Agents' },
+    { label:'Docker',  x:.15, y:.78, r:11, c:'0,245,255',  hot:false, desc:'DevOps' },
+    { label:'React',   x:.84, y:.76, r:11, c:'0,245,255',  hot:false, desc:'Frontend' },
+    { label:'NLP',     x:.34, y:.30, r:12, c:'0,255,136',  hot:false, desc:'Processing' },
+    { label:'CV2',     x:.66, y:.30, r:11, c:'0,255,136',  hot:false, desc:'Vision' },
+    { label:'Aiogram', x:.35, y:.68, r:12, c:'191,95,255', hot:false, desc:'Telegram' },
+    { label:'TG Bot',  x:.65, y:.68, r:12, c:'191,95,255', hot:false, desc:'Deployment' },
   ];
 
-  // Orbiting data nodes (bright dots on rings)
-  const orbiters = rings.map((ring, ri) => ({
-    ring: ri, angle: Math.random() * Math.PI * 2,
-    color: ring.color, size: 3.5 + Math.random() * 2,
-    label: ['AI','ML','API','LLM','GPU','NLP'][ri * 2 % 6],
+  // ── Edges (index pairs) ──
+  const EDGES = [
+    [0,3],[0,9],[0,10],[0,2],[0,1],
+    [3,1],[3,2],[3,4],[3,5],[3,6],[3,11],[3,12],
+    [6,7],[6,8],[6,11],[6,12],
+    [1,9],[2,10],[4,11],[5,12],[9,10],
+    [11,12],[7,1],[8,2],
+  ];
+
+  // Node state — positions with gentle float animation
+  const state = NODES.map((n, i) => ({
+    ...n,
+    px: 0, py: 0, // computed each frame
+    phase: Math.random() * Math.PI * 2,
+    floatAmp: 0.012 + Math.random() * 0.010,
+    floatSpd: 0.4 + Math.random() * 0.5,
+    pulsePhase: Math.random() * Math.PI * 2,
+    scale: 1,
+    targetScale: 1,
   }));
 
-  // Connection lines between nearby hot dots
-  const connections = [];
-  for (let i = 0; i < dots.length; i++) {
-    if (!dots[i].hot) continue;
-    for (let j = i+1; j < dots.length; j++) {
-      if (!dots[j].hot) continue;
-      const dx = dots[i].x-dots[j].x, dy = dots[i].y-dots[j].y, dz = dots[i].z-dots[j].z;
-      if (Math.sqrt(dx*dx+dy*dy+dz*dz) < R * 0.55) connections.push([i,j]);
-    }
+  // Travelling pulses along edges
+  const pulses = [];
+  let lastPulseSpawn = 0;
+
+  function spawnPulse() {
+    const edge = EDGES[Math.floor(Math.random() * EDGES.length)];
+    const rev  = Math.random() > 0.5;
+    pulses.push({ a: rev ? edge[1] : edge[0], b: rev ? edge[0] : edge[1], t: 0, spd: 0.008 + Math.random()*0.006 });
   }
 
-  let lastGT = performance.now();
+  const t0 = performance.now();
 
-  (function gloop(now = performance.now()){
+  (function gloop(now){
     requestAnimationFrame(gloop);
-    const dt = Math.min((now - lastGT) / 16.67, 3); lastGT = now;
-
-    globeRotY += (0.006 + gMx * 0.015) * dt;
-    globeRotX += (-gMy * 0.008 - 0.001) * dt;
-    globeRotX = Math.max(-0.6, Math.min(0.6, globeRotX));
-    const t = now / 1000;
-
+    const t = (now - t0) / 1000;
     gx.clearRect(0, 0, GW, GH);
 
-    // Outer glow
-    const grad = gx.createRadialGradient(GW/2, GH/2, R*0.6, GW/2, GH/2, R*1.9);
-    grad.addColorStop(0, 'rgba(0,245,255,0.04)');
-    grad.addColorStop(0.5,'rgba(191,95,255,0.03)');
-    grad.addColorStop(1, 'transparent');
-    gx.fillStyle = grad;
-    gx.fillRect(0, 0, GW, GH);
-
-    // Sphere outline glow
-    gx.beginPath();
-    gx.arc(GW/2, GH/2, R * 1.02, 0, Math.PI*2);
-    gx.strokeStyle = 'rgba(0,245,255,0.12)';
-    gx.lineWidth = 1.5;
-    gx.stroke();
-    gx.beginPath();
-    gx.arc(GW/2, GH/2, R, 0, Math.PI*2);
-    gx.strokeStyle = 'rgba(0,245,255,0.06)';
-    gx.lineWidth = 0.8;
-    gx.stroke();
-
-    // Transform and project all dots
-    const projected = dots.map(d => {
-      let p = rotY(d, globeRotY);
-      p = rotX(p, globeRotX);
-      return { ...project(p.x, p.y, p.z), z: p.z, hot: d.hot, phase: d.phase };
+    // Update node positions (float)
+    state.forEach((n, i) => {
+      const fx = n.floatAmp * Math.sin(t * n.floatSpd + n.phase);
+      const fy = n.floatAmp * Math.cos(t * n.floatSpd * 0.7 + n.phase + 1);
+      n.px = (n.x + fx) * GW;
+      n.py = (n.y + fy) * GH;
     });
 
-    // Draw connections between hot dots (only front-facing)
-    connections.forEach(([i, j]) => {
-      const a = projected[i], b = projected[j];
-      if (a.z < 0 || b.z < 0) return;
-      const alpha = Math.min(a.z, b.z) / R * 0.18;
-      gx.beginPath();
-      gx.moveTo(a.x, a.y);
-      gx.lineTo(b.x, b.y);
-      gx.strokeStyle = `rgba(0,245,255,${alpha})`;
-      gx.lineWidth = 0.7;
+    // Detect hovered node
+    let newHov = -1;
+    for (let i = 0; i < state.length; i++) {
+      const n = state[i];
+      const hitR = n.r * Math.min(GW,GH)/220 * 2.5;
+      if (Math.hypot(gmx - n.px, gmy - n.py) < hitR) { newHov = i; break; }
+    }
+    hoveredNode = newHov;
+
+    // Update scales
+    state.forEach((n, i) => {
+      n.targetScale = i === hoveredNode ? 1.55 : 1.0;
+      n.scale += (n.targetScale - n.scale) * 0.12;
+    });
+
+    // ── Draw edges ──
+    EDGES.forEach(([ai, bi]) => {
+      const a = state[ai], b = state[bi];
+      const isHovEdge = ai === hoveredNode || bi === hoveredNode;
+      const baseAlpha = 0.12;
+      const alpha = isHovEdge ? 0.5 : baseAlpha;
+      const lw    = isHovEdge ? 1.5 : 0.7;
+
+      // Gradient edge
+      const grad = gx.createLinearGradient(a.px, a.py, b.px, b.py);
+      grad.addColorStop(0, `rgba(${a.c},${alpha})`);
+      grad.addColorStop(1, `rgba(${b.c},${alpha})`);
+      gx.beginPath(); gx.moveTo(a.px, a.py); gx.lineTo(b.px, b.py);
+      gx.strokeStyle = grad; gx.lineWidth = lw; gx.stroke();
+    });
+
+    // ── Spawn & draw pulses ──
+    if (now - lastPulseSpawn > 300 && pulses.length < 18) { spawnPulse(); lastPulseSpawn = now; }
+    for (let i = pulses.length - 1; i >= 0; i--) {
+      const p = pulses[i];
+      p.t += p.spd;
+      if (p.t >= 1) { pulses.splice(i, 1); continue; }
+      const na = state[p.a], nb = state[p.b];
+      const px = na.px + (nb.px - na.px) * p.t;
+      const py = na.py + (nb.py - na.py) * p.t;
+      const fade = 1 - Math.abs(p.t - 0.5) * 2;
+      gx.beginPath(); gx.arc(px, py, 3.5, 0, Math.PI*2);
+      gx.fillStyle = `rgba(${na.c},${0.9 * fade})`; gx.fill();
+      // trail
+      for (let k = 1; k <= 4; k++) {
+        const tt = Math.max(0, p.t - k * 0.04);
+        const tx = na.px + (nb.px - na.px) * tt;
+        const ty = na.py + (nb.py - na.py) * tt;
+        gx.beginPath(); gx.arc(tx, ty, 2 - k*0.3, 0, Math.PI*2);
+        gx.fillStyle = `rgba(${na.c},${0.35 * fade * (1 - k/5)})`; gx.fill();
+      }
+    }
+
+    // ── Draw nodes ──
+    const baseR = Math.min(GW, GH) / 220;
+    state.forEach((n, i) => {
+      const r = n.r * baseR * n.scale;
+      const pulse = 0.6 + 0.4 * Math.sin(t * 2.2 + n.pulsePhase);
+      const isHov = i === hoveredNode;
+
+      // Outer glow ring for hovered / hot nodes
+      if (isHov || n.hot) {
+        const glowR = r * (isHov ? 3.5 : 2.5);
+        const radGrad = gx.createRadialGradient(n.px, n.py, r * 0.5, n.px, n.py, glowR);
+        const glowA = isHov ? 0.25 : 0.12 * pulse;
+        radGrad.addColorStop(0, `rgba(${n.c},${glowA})`);
+        radGrad.addColorStop(1, `rgba(${n.c},0)`);
+        gx.beginPath(); gx.arc(n.px, n.py, glowR, 0, Math.PI*2);
+        gx.fillStyle = radGrad; gx.fill();
+      }
+
+      // Animated circle border
+      const borderA = isHov ? 0.9 : (n.hot ? 0.6 * pulse : 0.4);
+      gx.beginPath(); gx.arc(n.px, n.py, r, 0, Math.PI*2);
+      gx.strokeStyle = `rgba(${n.c},${borderA})`;
+      gx.lineWidth = isHov ? 2 : 1.2;
       gx.stroke();
-    });
 
-    // Draw dots
-    projected.forEach(p => {
-      if (p.z < -R * 0.1) return;  // cull back-facing
-      const vis = (p.z + R) / (2 * R);  // 0 = back, 1 = front
-      const glow = 0.5 + 0.5 * Math.sin(t * 2.5 + p.phase);
-      if (p.hot) {
-        const a = vis * 0.85 * glow;
-        gx.beginPath(); gx.arc(p.x, p.y, p.scale * 5, 0, Math.PI*2);
-        gx.fillStyle = `rgba(0,245,255,${a * 0.12})`; gx.fill();
-        gx.beginPath(); gx.arc(p.x, p.y, p.scale * 2.5, 0, Math.PI*2);
-        gx.fillStyle = `rgba(0,245,255,${a})`; gx.fill();
-      } else {
-        gx.beginPath(); gx.arc(p.x, p.y, p.scale * 1.6, 0, Math.PI*2);
-        gx.fillStyle = `rgba(0,245,255,${vis * 0.35})`;
-        gx.fill();
+      // Filled core
+      const coreGrad = gx.createRadialGradient(n.px - r*0.25, n.py - r*0.25, 0, n.px, n.py, r);
+      coreGrad.addColorStop(0, `rgba(${n.c},${isHov ? 0.45 : 0.25 * pulse})`);
+      coreGrad.addColorStop(1, `rgba(${n.c},0.04)`);
+      gx.beginPath(); gx.arc(n.px, n.py, r, 0, Math.PI*2);
+      gx.fillStyle = coreGrad; gx.fill();
+
+      // Label
+      const fs = Math.round(r * (isHov ? 0.9 : 0.7));
+      gx.font = `${fs}px 'Share Tech Mono',monospace`;
+      gx.textAlign = 'center';
+      gx.fillStyle = `rgba(${n.c},${isHov ? 1 : 0.75})`;
+      gx.fillText(n.label, n.px, n.py + fs * 0.35);
+
+      // Desc tooltip on hover
+      if (isHov) {
+        const tf = Math.round(r * 0.55);
+        gx.font = `${tf}px 'Share Tech Mono',monospace`;
+        gx.fillStyle = `rgba(${n.c},0.55)`;
+        gx.fillText(n.desc, n.px, n.py + r + tf * 1.8);
       }
     });
 
-    // Draw rings
-    rings.forEach((ring, ri) => {
-      ring.phase += ring.speed * dt;
-      const steps = 120;
-      for (let s = 0; s < steps; s++) {
-        const a1 = (s / steps) * Math.PI * 2 + ring.phase;
-        const a2 = ((s + 1) / steps) * Math.PI * 2 + ring.phase;
-        const x1 = ring.radius * Math.cos(a1),  y1 = ring.radius * Math.sin(a1) * Math.cos(ring.tilt);
-        const z1 = ring.radius * Math.sin(a1) * Math.sin(ring.tilt);
-        const x2 = ring.radius * Math.cos(a2),  y2 = ring.radius * Math.sin(a2) * Math.cos(ring.tilt);
-        const z2 = ring.radius * Math.sin(a2) * Math.sin(ring.tilt);
-        let p1 = rotY({x:x1,y:y1,z:z1}, globeRotY); p1 = rotX(p1, globeRotX); const pr1 = project(p1.x, p1.y, p1.z);
-        let p2 = rotY({x:x2,y:y2,z:z2}, globeRotY); p2 = rotX(p2, globeRotX); const pr2 = project(p2.x, p2.y, p2.z);
-        const fade = (Math.sin(a1 + ring.phase * 0.5) * 0.3 + 0.7);
-        gx.beginPath(); gx.moveTo(pr1.x, pr1.y); gx.lineTo(pr2.x, pr2.y);
-        gx.strokeStyle = `rgba(${ring.color},${ring.opacity * fade})`;
-        gx.lineWidth = ring.thickness;
+    // ── Click ripple ──
+    if (clickedNode >= 0) {
+      const el = state[clickedNode];
+      const age = (now - clickTime) / 600;
+      if (age < 1) {
+        const cr = el.r * baseR * (1 + age * 4);
+        gx.beginPath(); gx.arc(el.px, el.py, cr, 0, Math.PI*2);
+        gx.strokeStyle = `rgba(${el.c},${(1-age)*0.7})`;
+        gx.lineWidth = 2 * (1 - age);
         gx.stroke();
-      }
-    });
+      } else { clickedNode = -1; }
+    }
 
-    // Orbiter dots on rings
-    orbiters.forEach(orb => {
-      const ring = rings[orb.ring];
-      orb.angle += ring.speed * dt * 2.5;
-      const ox = ring.radius * Math.cos(orb.angle);
-      const oy = ring.radius * Math.sin(orb.angle) * Math.cos(ring.tilt);
-      const oz = ring.radius * Math.sin(orb.angle) * Math.sin(ring.tilt);
-      let p = rotY({x:ox,y:oy,z:oz}, globeRotY); p = rotX(p, globeRotX);
-      const pr = project(p.x, p.y, p.z);
-      const glow = 0.6 + 0.4 * Math.sin(t * 3 + orb.angle);
-      // halo
-      gx.beginPath(); gx.arc(pr.x, pr.y, orb.size * pr.scale * 3, 0, Math.PI*2);
-      gx.fillStyle = `rgba(${orb.color},${0.15 * glow})`; gx.fill();
-      // core
-      gx.beginPath(); gx.arc(pr.x, pr.y, orb.size * pr.scale, 0, Math.PI*2);
-      gx.fillStyle = `rgba(${orb.color},${0.9 * glow})`; gx.fill();
-      // label
-      if (pr.scale > 0.92) {
-        gx.font = `${Math.round(10 * pr.scale)}px 'Share Tech Mono',monospace`;
-        gx.fillStyle = `rgba(${orb.color},${0.7 * glow})`;
-        gx.fillText(orb.label, pr.x + orb.size * pr.scale * 1.4, pr.y + 4 * pr.scale);
-      }
-    });
+    // Scan line sweep
+    const sweep = ((t * 0.18) % 1) * GH;
+    const sg = gx.createLinearGradient(0, sweep - 30, 0, sweep + 30);
+    sg.addColorStop(0, 'rgba(0,245,255,0)');
+    sg.addColorStop(0.5, 'rgba(0,245,255,0.03)');
+    sg.addColorStop(1, 'rgba(0,245,255,0)');
+    gx.fillStyle = sg; gx.fillRect(0, sweep - 30, GW, 60);
 
-    // Central core glow
-    const cg = gx.createRadialGradient(GW/2, GH/2, 0, GW/2, GH/2, R*0.4);
-    cg.addColorStop(0, `rgba(0,245,255,${0.06 + 0.04*Math.sin(t*1.8)})`);
-    cg.addColorStop(1, 'transparent');
-    gx.fillStyle = cg; gx.beginPath(); gx.arc(GW/2, GH/2, R*0.4, 0, Math.PI*2); gx.fill();
-  })();
+  })(t0);
 })();
-
 /* ════════════════ Active nav ════════════════ */
 const sections=['about','skills','portfolio','contact'];
 const navLinks=document.querySelectorAll('.nav-links a');
