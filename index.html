@@ -94,14 +94,12 @@
     /* ── Rich glitch ── */
     .glitch { position: relative; display: inline-block; }
     .glitch::before, .glitch::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    /* Cyan layer — clips top third, drifts left */
     .glitch::before {
       color: var(--cyan);
       text-shadow: -4px 0 var(--cyan), 0 0 20px var(--cyan);
       clip-path: polygon(0 0, 100% 0, 100% 38%, 0 38%);
       animation: glA 6s infinite 3s;
     }
-    /* Pink layer — clips bottom third, drifts right */
     .glitch::after {
       color: var(--pink);
       text-shadow: 4px 0 var(--pink), 0 0 20px var(--pink);
@@ -111,9 +109,9 @@
     @keyframes glA {
       0%,82%,100% { transform:translate(0); opacity:0; clip-path:polygon(0 0,100% 0,100% 38%,0 38%); }
       84%  { transform:translate(-8px, 2px) skewX(-3deg); opacity:1; clip-path:polygon(0 5%,100% 0,100% 42%,0 38%); }
-      86%  { transform:translate(6px,-3px) skewX(2deg);  opacity:.9; clip-path:polygon(0 0,100% 5%,100% 35%,0 40%); }
+      86%  { transform:translate(6px,-3px) skewX(2deg); opacity:.9; clip-path:polygon(0 0,100% 5%,100% 35%,0 40%); }
       88%  { transform:translate(-12px,1px) skewX(-5deg); opacity:1; clip-path:polygon(2% 0,100% 2%,98% 40%,0 36%); }
-      90%  { transform:translate(4px, 2px); opacity:.8; clip-path:polygon(0 0,100% 0,100% 38%,0 38%); }
+      90%  { transform:translate(4px, 2px); opacity:.8; }
       92%  { transform:translate(-6px,-1px) skewX(3deg); opacity:1; }
       94%  { transform:translate(0); opacity:0; }
     }
@@ -121,22 +119,23 @@
       0%,82%,100% { transform:translate(0); opacity:0; clip-path:polygon(0 62%,100% 62%,100% 100%,0 100%); }
       84%  { transform:translate(10px,-2px) skewX(4deg); opacity:1; clip-path:polygon(0 60%,100% 64%,100% 100%,0 100%); }
       86%  { transform:translate(-8px, 3px) skewX(-3deg); opacity:.9; clip-path:polygon(0 65%,100% 60%,100% 100%,2% 100%); }
-      88%  { transform:translate(14px,-1px) skewX(6deg); opacity:1; clip-path:polygon(0 62%,100% 62%,100% 98%,0 100%); }
+      88%  { transform:translate(14px,-1px) skewX(6deg); opacity:1; }
       90%  { transform:translate(-5px, 2px); opacity:.85; }
       92%  { transform:translate(8px,-2px) skewX(-4deg); opacity:1; }
       94%  { transform:translate(0); opacity:0; }
     }
-    /* RGB color split pulse on the main text during glitch */
+    /* RGB split lives on ::before only — doesn't touch main element opacity */
     @keyframes glRGB {
-      0%,82%,100% { text-shadow: none; }
-      84%  { text-shadow: -6px 0 rgba(0,245,255,0.7), 6px 0 rgba(255,45,120,0.7), 0 0 30px rgba(255,255,255,0.3); }
-      86%  { text-shadow: 8px 0 rgba(0,245,255,0.5), -8px 0 rgba(255,45,120,0.5); }
-      88%  { text-shadow: -10px 0 rgba(0,245,255,0.8), 10px 0 rgba(255,45,120,0.8), 0 0 50px rgba(0,245,255,0.2); }
-      90%  { text-shadow: 4px 0 rgba(0,245,255,0.4), -4px 0 rgba(255,45,120,0.4); }
-      92%  { text-shadow: -6px 0 rgba(0,245,255,0.6), 6px 0 rgba(255,45,120,0.6); }
-      94%  { text-shadow: none; }
+      0%,82%,100% { filter:none; }
+      84%  { filter: drop-shadow(-6px 0 rgba(0,245,255,0.7)) drop-shadow(6px 0 rgba(255,45,120,0.7)); }
+      86%  { filter: drop-shadow(8px 0 rgba(0,245,255,0.5)) drop-shadow(-8px 0 rgba(255,45,120,0.5)); }
+      88%  { filter: drop-shadow(-10px 0 rgba(0,245,255,0.9)) drop-shadow(10px 0 rgba(255,45,120,0.9)) drop-shadow(0 0 20px rgba(0,245,255,0.4)); }
+      90%  { filter: drop-shadow(4px 0 rgba(0,245,255,0.4)) drop-shadow(-4px 0 rgba(255,45,120,0.4)); }
+      92%  { filter: drop-shadow(-6px 0 rgba(0,245,255,0.6)) drop-shadow(6px 0 rgba(255,45,120,0.6)); }
+      94%  { filter: none; }
     }
-    .glitch { animation: glRGB 6s infinite 3s; }
+    /* Apply RGB glitch to hero-name AFTER fadeUp completes, via additional animation */
+    .glitch.active-glitch { animation: glRGB 6s infinite 3s; }
     .hero-role { font-family: 'Orbitron', sans-serif; font-size: clamp(1rem,2.5vw,1.6rem); color: var(--cyan); text-shadow: 0 0 25px var(--cyan); margin-bottom: 28px; height: 2.2rem; display: flex; align-items: center; gap: 4px; opacity: 0; animation: fadeUp .7s ease 2.4s forwards; }
     .type-cursor { width: 2px; height: 1.3em; background: var(--cyan); animation: blink .7s step-end infinite; flex-shrink: 0; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
@@ -196,19 +195,47 @@
     .terminal-body pre { font-family: 'Share Tech Mono', monospace; font-size: .82rem; line-height: 1.9; white-space: pre-wrap; }
     .tk{color:var(--purple)} .tcl{color:var(--cyan)} .ts{color:var(--green)} .tf{color:#ffbd4f} .tc{color:var(--dim)}
 
-    /* ── Skills ── */
-    .skills-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 80px; }
-    .skill-row { margin-bottom: 32px; }
-    .skill-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .skill-name { font-family: 'Share Tech Mono', monospace; font-size: .82rem; color: var(--text); letter-spacing: 1px; }
-    .skill-name.ai-skill { color: var(--purple); }
-    .skill-pct { font-family: 'Orbitron', monospace; font-size: .72rem; color: var(--cyan); min-width: 36px; text-align: right; }
-    .skill-track { height: 3px; background: rgba(0,245,255,.1); border-radius: 2px; position: relative; }
-    .skill-fill { height: 100%; width: 0; border-radius: 2px; box-shadow: 0 0 12px rgba(0,245,255,.6),0 0 24px rgba(0,245,255,.2); transition: width 1.3s cubic-bezier(.16,1,.3,1); position: relative; background: linear-gradient(90deg,var(--cyan),var(--purple)); }
-    .skill-fill.ai-fill { background: linear-gradient(90deg, var(--purple), #ff79c6); box-shadow: 0 0 12px rgba(191,95,255,.6),0 0 24px rgba(191,95,255,.2); }
-    .skill-fill::after { content: ''; position: absolute; right: -4px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan),0 0 16px var(--cyan); opacity: 0; transition: opacity .3s .8s; }
-    .skill-fill.ai-fill::after { background: var(--purple); box-shadow: 0 0 8px var(--purple),0 0 16px var(--purple); }
-    .skill-fill.go::after { opacity: 1; }
+    /* ── Skills hex grid ── */
+    .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    .skill-card {
+      position: relative; padding: 22px 20px 18px;
+      background: rgba(0,245,255,0.03);
+      border: 1px solid rgba(0,245,255,0.10);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color .3s, background .3s, transform .3s;
+      cursor: default;
+    }
+    .skill-card:hover { border-color: rgba(0,245,255,0.4); background: rgba(0,245,255,0.07); transform: translateY(-4px); }
+    .skill-card.ai { border-color: rgba(191,95,255,0.15); background: rgba(191,95,255,0.04); }
+    .skill-card.ai:hover { border-color: rgba(191,95,255,0.5); background: rgba(191,95,255,0.10); }
+    /* Animated fill bar at bottom */
+    .skill-card-fill {
+      position: absolute; bottom: 0; left: 0; height: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--purple));
+      width: 0; transition: width 1.4s cubic-bezier(.16,1,.3,1);
+    }
+    .skill-card.ai .skill-card-fill { background: linear-gradient(90deg, var(--purple), #ff79c6); }
+    .skill-card-fill.go { }
+    /* Top glow line */
+    .skill-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0; transition: opacity .3s;
+    }
+    .skill-card.ai::before { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
+    .skill-card:hover::before { opacity: 1; }
+    .skill-card-name { font-family: 'Share Tech Mono', monospace; font-size: .88rem; color: var(--text); letter-spacing: 1px; margin-bottom: 10px; }
+    .skill-card.ai .skill-card-name { color: var(--purple); }
+    .skill-card-bar-wrap { height: 4px; background: rgba(0,245,255,0.08); border-radius: 2px; margin-bottom: 10px; position: relative; }
+    .skill-card.ai .skill-card-bar-wrap { background: rgba(191,95,255,0.10); }
+    .skill-card-bar { height: 100%; border-radius: 2px; width: 0; transition: width 1.3s cubic-bezier(.16,1,.3,1); background: linear-gradient(90deg, var(--cyan), var(--purple)); box-shadow: 0 0 8px var(--cyan); }
+    .skill-card.ai .skill-card-bar { background: linear-gradient(90deg, var(--purple), #ff79c6); box-shadow: 0 0 8px var(--purple); }
+    .skill-card-footer { display: flex; justify-content: space-between; align-items: center; }
+    .skill-card-pct { font-family: 'Orbitron', monospace; font-size: .80rem; color: var(--cyan); font-weight: 700; }
+    .skill-card.ai .skill-card-pct { color: var(--purple); }
+    .skill-card-tag { font-family: 'Share Tech Mono', monospace; font-size: .55rem; letter-spacing: 2px; color: rgba(0,245,255,0.35); text-transform: uppercase; }
+    .skill-card.ai .skill-card-tag { color: rgba(191,95,255,0.40); }
 
     /* ── Portfolio ── */
     .projects-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(340px,1fr)); gap: 28px; perspective: 1200px; }
@@ -460,6 +487,26 @@
     <span class="tk">def</span> <span class="tf">hire_me</span>(self):
         <span class="tk">return</span> <span class="ts">"Let's build something great"</span></pre>
           </div>
+          <!-- Live stats panel -->
+          <div style="border-top:1px solid rgba(0,245,255,0.10);padding:14px 24px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div style="text-align:center;">
+              <div style="font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:700;color:var(--cyan);text-shadow:0 0 15px rgba(0,245,255,0.5);" id="aboutLinesCount">0</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:2px;color:var(--dim);margin-top:3px;">LINES OF CODE</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:700;color:var(--green);text-shadow:0 0 15px rgba(0,255,136,0.4);" id="aboutUptimeCount">00:00:00</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:2px;color:var(--dim);margin-top:3px;">SESSION UPTIME</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:700;color:var(--purple);text-shadow:0 0 15px rgba(191,95,255,0.4);" id="aboutApiCount">0</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:2px;color:var(--dim);margin-top:3px;">API CALLS / MIN</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:700;color:#ffbd4f;text-shadow:0 0 15px rgba(255,189,79,0.4);" id="aboutStatusDot">● ONLINE</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:2px;color:var(--dim);margin-top:3px;">AI ENGINE</div>
+            </div>
+          </div>
+          </div>
         </div>
       </div>
     </div>
@@ -472,41 +519,45 @@
       <h2 class="section-title scramble-title" data-i18n="skills-title">Что я умею</h2>
     </div>
     <div class="skills-grid">
-      <div class="skills-col reveal">
-        <div class="skill-row">
-          <div class="skill-meta"><span class="skill-name">Python</span><span class="skill-pct" id="pct-0">0%</span></div>
-          <div class="skill-track"><div class="skill-fill" data-pct="90" data-idx="0"></div></div>
-        </div>
-        <div class="skill-row">
-          <div class="skill-meta"><span class="skill-name">FastAPI</span><span class="skill-pct" id="pct-1">0%</span></div>
-          <div class="skill-track"><div class="skill-fill" data-pct="85" data-idx="1"></div></div>
-        </div>
-        <div class="skill-row">
-          <div class="skill-meta"><span class="skill-name ai-skill">LLM Integration</span><span class="skill-pct" id="pct-2">0%</span></div>
-          <div class="skill-track"><div class="skill-fill ai-fill" data-pct="92" data-idx="2"></div></div>
-        </div>
-        <div class="skill-row">
-          <div class="skill-meta"><span class="skill-name ai-skill">Prompt Engineering</span><span class="skill-pct" id="pct-3">0%</span></div>
-          <div class="skill-track"><div class="skill-fill ai-fill" data-pct="88" data-idx="3"></div></div>
-        </div>
+      <div class="skill-card reveal" data-pct="90">
+        <div class="skill-card-name">Python</div>
+        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
+        <div class="skill-card-footer"><span class="skill-card-pct">90%</span><span class="skill-card-tag">Backend</span></div>
       </div>
-      <div class="skills-col reveal">
-        <div class="skill-row">
-          <div class="skill-meta"><span class="skill-name">Aiogram</span><span class="skill-pct" id="pct-4">0%</span></div>
-          <div class="skill-track"><div class="skill-fill" data-pct="88" data-idx="4"></div></div>
-        </div>
-        <div class="skill-row">
-          <div class="skill-meta"><span class="skill-name">React</span><span class="skill-pct" id="pct-5">0%</span></div>
-          <div class="skill-track"><div class="skill-fill" data-pct="78" data-idx="5"></div></div>
-        </div>
-        <div class="skill-row">
-          <div class="skill-meta"><span class="skill-name">Docker</span><span class="skill-pct" id="pct-6">0%</span></div>
-          <div class="skill-track"><div class="skill-fill" data-pct="76" data-idx="6"></div></div>
-        </div>
-        <div class="skill-row">
-          <div class="skill-meta"><span class="skill-name">PostgreSQL</span><span class="skill-pct" id="pct-7">0%</span></div>
-          <div class="skill-track"><div class="skill-fill" data-pct="72" data-idx="7"></div></div>
-        </div>
+      <div class="skill-card reveal" data-pct="85">
+        <div class="skill-card-name">FastAPI</div>
+        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
+        <div class="skill-card-footer"><span class="skill-card-pct">85%</span><span class="skill-card-tag">REST API</span></div>
+      </div>
+      <div class="skill-card ai reveal" data-pct="92">
+        <div class="skill-card-name">LLM Integration</div>
+        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
+        <div class="skill-card-footer"><span class="skill-card-pct">92%</span><span class="skill-card-tag">AI Core</span></div>
+      </div>
+      <div class="skill-card ai reveal" data-pct="88">
+        <div class="skill-card-name">Prompt Engineering</div>
+        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
+        <div class="skill-card-footer"><span class="skill-card-pct">88%</span><span class="skill-card-tag">AI Core</span></div>
+      </div>
+      <div class="skill-card reveal" data-pct="88">
+        <div class="skill-card-name">Aiogram</div>
+        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
+        <div class="skill-card-footer"><span class="skill-card-pct">88%</span><span class="skill-card-tag">Telegram</span></div>
+      </div>
+      <div class="skill-card reveal" data-pct="78">
+        <div class="skill-card-name">React</div>
+        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
+        <div class="skill-card-footer"><span class="skill-card-pct">78%</span><span class="skill-card-tag">Frontend</span></div>
+      </div>
+      <div class="skill-card reveal" data-pct="76">
+        <div class="skill-card-name">Docker</div>
+        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
+        <div class="skill-card-footer"><span class="skill-card-pct">76%</span><span class="skill-card-tag">DevOps</span></div>
+      </div>
+      <div class="skill-card reveal" data-pct="72">
+        <div class="skill-card-name">PostgreSQL</div>
+        <div class="skill-card-bar-wrap"><div class="skill-card-bar"></div></div>
+        <div class="skill-card-footer"><span class="skill-card-pct">72%</span><span class="skill-card-tag">Database</span></div>
       </div>
     </div>
   </section>
@@ -527,12 +578,12 @@
       <div class="auditor-head">
         <div class="auditor-head-icon">⚙</div>
         <div>
-          <div class="auditor-head-title">AI CODE AUDITOR</div>
-          <div class="auditor-head-sub">// analyze any github repo or raw code</div>
+          <div class="auditor-head-title" data-i18n="audit-title">AI CODE AUDITOR</div>
+          <div class="auditor-head-sub" data-i18n="audit-sub">// analyze any github repo or raw code</div>
         </div>
         <div class="auditor-status">
           <div class="auditor-status-dot"></div>
-          <span id="auditorStatusTxt">ENGINE READY</span>
+          <span id="auditorStatusTxt" data-i18n="audit-status">ENGINE READY</span>
         </div>
       </div>
       <div class="auditor-body">
@@ -540,6 +591,7 @@
           <div class="auditor-input-wrap">
             <input class="auditor-input" id="auditInput"
               placeholder="github.com/user/repo  or  paste code..."
+              data-i18n-placeholder="audit-placeholder"
               autocomplete="off" spellcheck="false"/>
           </div>
           <div class="auditor-opts">
@@ -550,7 +602,7 @@
           </div>
           <button class="auditor-run-btn" id="auditRunBtn">
             <div class="btn-spinner"></div>
-            <span class="btn-label">RUN AUDIT</span>
+            <span class="btn-label" data-i18n="audit-run">RUN AUDIT</span>
           </button>
           <div class="auditor-metrics" id="auditMetrics">
             <div class="auditor-metric">
@@ -566,29 +618,27 @@
               <div class="auditor-metric-lbl">Score</div>
             </div>
           </div>
-
-          <!-- Tips panel fills the empty left space -->
           <div class="auditor-tips">
-            <div class="auditor-tips-title">// HOW TO USE</div>
+            <div class="auditor-tips-title" data-i18n="audit-tips-title">// HOW TO USE</div>
             <div class="auditor-tip">
               <span class="auditor-tip-icon">▸</span>
-              <span class="auditor-tip-text">Вставь ссылку на GitHub файл:<br><span style="color:var(--cyan);opacity:0.7">github.com/user/repo/blob/main/app.py</span></span>
+              <span class="auditor-tip-text"><span data-i18n="audit-tip1">Paste a GitHub file link:</span><br><span style="color:var(--cyan);opacity:0.7">github.com/user/repo/blob/main/app.py</span></span>
             </div>
             <div class="auditor-tip">
               <span class="auditor-tip-icon">▸</span>
-              <span class="auditor-tip-text">Или вставь код напрямую в поле ввода и нажми RUN AUDIT</span>
+              <span class="auditor-tip-text" data-i18n="audit-tip2">Or paste code directly and press RUN AUDIT</span>
             </div>
             <div class="auditor-tip">
               <span class="auditor-tip-icon">▸</span>
-              <span class="auditor-tip-text">Выбери режим: <span style="color:var(--cyan)">SECURITY</span> — поиск уязвимостей, <span style="color:var(--cyan)">PERFORMANCE</span> — узкие места</span>
+              <span class="auditor-tip-text" data-i18n-html="audit-tip3">Select mode: <span style="color:var(--cyan)">SECURITY</span> — find vulnerabilities, <span style="color:var(--cyan)">PERFORMANCE</span> — bottlenecks</span>
             </div>
             <div class="auditor-tip">
               <span class="auditor-tip-icon">▸</span>
-              <span class="auditor-tip-text">Анализатор работает локально даже без подключения к серверу</span>
+              <span class="auditor-tip-text" data-i18n="audit-tip4">Analyzer works locally even without server connection</span>
             </div>
             <div class="auditor-tip" style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(0,245,255,0.07);">
               <span class="auditor-tip-icon" style="color:var(--green)">✓</span>
-              <span class="auditor-tip-text" style="color:rgba(0,255,136,0.60)">Поддерживает Python, JavaScript, TypeScript и другие языки</span>
+              <span class="auditor-tip-text" style="color:rgba(0,255,136,0.60)" data-i18n="audit-tip5">Supports Python, JavaScript, TypeScript and more</span>
             </div>
           </div>
         </div>
@@ -697,6 +747,17 @@ const LANGS = {
     'scanner-hint':'// навести на узлы для активации  —  FAKE NEWS DETECTOR  /  CS2 AI COACH',
     'footer-built':'СОЗДАНО С КОДОМ И АМБИЦИЯМИ',
     'stat0':'Живых бота','stat1':'Технологий в стеке','stat2':'AI API интеграции',
+    'audit-title':'AI CODE AUDITOR',
+    'audit-sub':'// анализирует GitHub-репо или сырой код',
+    'audit-placeholder':'github.com/user/repo  или  вставь код...',
+    'audit-run':'ЗАПУСТИТЬ АУДИТ',
+    'audit-status':'ДВИЖОК ГОТОВ',
+    'audit-tips-title':'// КАК ИСПОЛЬЗОВАТЬ',
+    'audit-tip1':'Вставь ссылку на GitHub файл:',
+    'audit-tip2':'Или вставь код напрямую в поле и нажми ЗАПУСТИТЬ АУДИТ',
+    'audit-tip3':'Выбери режим: <span style="color:var(--cyan)">SECURITY</span> — поиск уязвимостей, <span style="color:var(--cyan)">PERFORMANCE</span> — узкие места',
+    'audit-tip4':'Анализатор работает локально даже без подключения к серверу',
+    'audit-tip5':'Поддерживает Python, JavaScript, TypeScript и другие языки',
     roles:['Full-Stack разработчик','AI разработчик','Python инженер','Архитектор ботов'],
   },
   en: {
@@ -720,6 +781,17 @@ const LANGS = {
     'scanner-hint':'// hover nodes to activate  —  FAKE NEWS DETECTOR  /  CS2 AI COACH',
     'footer-built':'BUILT WITH CODE & AMBITION',
     'stat0':'Live Bots','stat1':'Tech Tools','stat2':'AI APIs',
+    'audit-title':'AI CODE AUDITOR',
+    'audit-sub':'// analyze any github repo or raw code',
+    'audit-placeholder':'github.com/user/repo  or  paste code...',
+    'audit-run':'RUN AUDIT',
+    'audit-status':'ENGINE READY',
+    'audit-tips-title':'// HOW TO USE',
+    'audit-tip1':'Paste a GitHub file link:',
+    'audit-tip2':'Or paste code directly and press RUN AUDIT',
+    'audit-tip3':'Select mode: <span style="color:var(--cyan)">SECURITY</span> — find vulnerabilities, <span style="color:var(--cyan)">PERFORMANCE</span> — bottlenecks',
+    'audit-tip4':'Analyzer works locally even without server connection',
+    'audit-tip5':'Supports Python, JavaScript, TypeScript and more',
     roles:['Full-Stack Developer','AI Developer','Python Engineer','Bot Architect'],
   }
 };
@@ -733,6 +805,7 @@ function applyLang(lang, skipRestart) {
   const t = LANGS[lang];
   document.querySelectorAll('[data-i18n]').forEach(el => { const v = t[el.dataset.i18n]; if (v !== undefined) el.textContent = v; });
   document.querySelectorAll('[data-i18n-html]').forEach(el => { const v = t[el.dataset.i18nHtml]; if (v !== undefined) el.innerHTML = v; });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { const v = t[el.dataset.i18nPlaceholder]; if (v !== undefined) el.placeholder = v; });
   document.getElementById('langBtn').textContent = lang === 'ru' ? 'EN' : 'RU';
   if (!skipRestart) restartTyping();
   // Re-render overlay if open
@@ -920,6 +993,11 @@ function type(){
 }
 function restartTyping(){clearTimeout(typT);ri=0;ci=0;del=false;typEl.textContent='';typT=setTimeout(type,200);}
 setTimeout(restartTyping,2900);
+// Add glitch filter after name fades in
+setTimeout(() => {
+  const gEl = document.querySelector('.hero-name.glitch');
+  if (gEl) gEl.classList.add('active-glitch');
+}, 3200);
 
 /* ════════════════ Text Scramble ════════════════ */
 class Scramble {
@@ -971,20 +1049,48 @@ new IntersectionObserver(entries=>{
   }
 },{threshold:.4}).observe(document.getElementById('stats'));
 
-/* ════════════════ Skill bars ════════════════ */
-function counter(idx,target,dur){
-  const el=document.getElementById('pct-'+idx);
-  if(!el)return;
-  let n=0;const step=target/(dur/16);
-  const t=setInterval(()=>{n=Math.min(n+step,target);el.textContent=Math.round(n)+'%';if(n>=target)clearInterval(t);},16);
-}
+/* ════════════════ About live stats ════════════════ */
+(function(){
+  // Lines of code counter — counts up randomly like it's typing
+  let lines = 4280;
+  const linesEl = document.getElementById('aboutLinesCount');
+  const apiEl   = document.getElementById('aboutApiCount');
+  const upEl    = document.getElementById('aboutUptimeCount');
+  const startT  = Date.now();
+  if (!linesEl) return;
+
+  // Count up to starting value
+  let displayed = 0;
+  const countUp = setInterval(() => {
+    displayed = Math.min(displayed + 47, lines);
+    if (linesEl) linesEl.textContent = displayed.toLocaleString();
+    if (displayed >= lines) clearInterval(countUp);
+  }, 30);
+
+  setInterval(() => {
+    lines += Math.floor(Math.random() * 3);
+    if (linesEl) linesEl.textContent = lines.toLocaleString();
+    if (apiEl) apiEl.textContent = 90 + Math.floor(Math.random() * 70);
+    // uptime
+    const elapsed = Math.floor((Date.now() - startT) / 1000);
+    const h = String(Math.floor(elapsed/3600)).padStart(2,'0');
+    const m = String(Math.floor((elapsed%3600)/60)).padStart(2,'0');
+    const s = String(elapsed%60).padStart(2,'0');
+    if (upEl) upEl.textContent = `${h}:${m}:${s}`;
+  }, 1000);
+})();
+
+/* ════════════════ Skill cards ════════════════ */
 let skillsDone=false;
 new IntersectionObserver(entries=>{
   if(entries[0].isIntersecting&&!skillsDone){
     skillsDone=true;
-    document.querySelectorAll('.skill-fill').forEach((f,i)=>{
-      const pct=+f.dataset.pct,idx=+f.dataset.idx;
-      setTimeout(()=>{f.style.width=pct+'%';f.classList.add('go');counter(idx,pct,1200);},i*130);
+    document.querySelectorAll('.skill-card').forEach((card,i)=>{
+      const pct = +card.dataset.pct;
+      setTimeout(()=>{
+        const bar = card.querySelector('.skill-card-bar');
+        if(bar) bar.style.width = pct+'%';
+      }, i*100);
     });
   }
 },{threshold:.2}).observe(document.getElementById('skills'));
@@ -1318,7 +1424,7 @@ addEventListener('click', e => {
       logLine('<span class="a-grn">> AUDIT COMPLETE ✓</span>', 100);
 
       setMetrics(result.complexity, result.issues_found ?? 0, scoreNum);
-      statusTxt.textContent = 'AUDIT COMPLETE';
+      statusTxt.textContent = LANGS[window.currentLang||'ru']['audit-status'] || 'ENGINE READY';
 
     } catch (err) {
       logLine(`<span class="a-err">> ERROR: ${err.message}</span>`, 300);
@@ -1351,15 +1457,40 @@ addEventListener('click', e => {
   let clickedNode = -1;
   let clickTime = 0;
 
-  gc.addEventListener('mousemove', e => {
-    const r = gc.getBoundingClientRect();
-    const dpr = Math.min(devicePixelRatio, 2);
-    gmx = (e.clientX - r.left) * dpr;
-    gmy = (e.clientY - r.top)  * dpr;
+  let dragging = -1, dragOffX = 0, dragOffY = 0;
+  gc.addEventListener('mousedown', e => {
+    const r = gc.getBoundingClientRect(), dpr = Math.min(devicePixelRatio, 2);
+    const mx = (e.clientX - r.left) * dpr, my = (e.clientY - r.top) * dpr;
+    for (let i = 0; i < state.length; i++) {
+      const n = state[i], hitR = n.r * Math.min(GW,GH)/220 * 3;
+      if (Math.hypot(mx - n.px, my - n.py) < hitR) {
+        dragging = i; dragOffX = mx - n.px; dragOffY = my - n.py;
+        gc.style.cursor = 'grabbing'; break;
+      }
+    }
   });
-  gc.addEventListener('mouseleave', () => { gmx = -9999; gmy = -9999; hoveredNode = -1; });
-  gc.addEventListener('click', () => {
-    if (hoveredNode >= 0) { clickedNode = hoveredNode; clickTime = performance.now(); }
+  gc.addEventListener('mousemove', e => {
+    const r = gc.getBoundingClientRect(), dpr = Math.min(devicePixelRatio, 2);
+    gmx = (e.clientX - r.left) * dpr; gmy = (e.clientY - r.top) * dpr;
+    if (dragging >= 0) {
+      // Override floating position while dragging
+      state[dragging]._dragX = gmx - dragOffX;
+      state[dragging]._dragY = gmy - dragOffY;
+    }
+  });
+  const stopDrag = () => {
+    if (dragging >= 0) { delete state[dragging]._dragX; delete state[dragging]._dragY; dragging = -1; gc.style.cursor = 'crosshair'; }
+  };
+  gc.addEventListener('mouseup', stopDrag);
+  gc.addEventListener('mouseleave', () => { gmx = -9999; gmy = -9999; hoveredNode = -1; stopDrag(); });
+  gc.addEventListener('click', e => {
+    if (dragging >= 0) return;
+    const r = gc.getBoundingClientRect(), dpr = Math.min(devicePixelRatio, 2);
+    const mx = (e.clientX - r.left)*dpr, my = (e.clientY - r.top)*dpr;
+    for (let i = 0; i < state.length; i++) {
+      const n = state[i], hr = n.r * Math.min(GW,GH)/220 * 2.5;
+      if (Math.hypot(mx - n.px, my - n.py) < hr) { clickedNode = i; clickTime = performance.now(); break; }
+    }
   });
   gc.style.cursor = 'crosshair';
 
@@ -1418,12 +1549,16 @@ addEventListener('click', e => {
     const t = (now - t0) / 1000;
     gx.clearRect(0, 0, GW, GH);
 
-    // Update node positions (float)
+    // Update node positions (float + drag override)
     state.forEach((n, i) => {
-      const fx = n.floatAmp * Math.sin(t * n.floatSpd + n.phase);
-      const fy = n.floatAmp * Math.cos(t * n.floatSpd * 0.7 + n.phase + 1);
-      n.px = (n.x + fx) * GW;
-      n.py = (n.y + fy) * GH;
+      if (n._dragX !== undefined) {
+        n.px = n._dragX; n.py = n._dragY;
+      } else {
+        const fx = n.floatAmp * Math.sin(t * n.floatSpd + n.phase);
+        const fy = n.floatAmp * Math.cos(t * n.floatSpd * 0.7 + n.phase + 1);
+        n.px = (n.x + fx) * GW;
+        n.py = (n.y + fy) * GH;
+      }
     });
 
     // Detect hovered node
