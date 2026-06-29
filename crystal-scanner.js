@@ -1,7 +1,7 @@
 /**
  * crystal-scanner.js
  * Standalone Three.js module for the Crystal Scanner section.
- * Import as <script type="module" src="crystal-scanner.js"></script>
+ * Usage: include via <script type=module src=crystal-scanner.js>
  */
 
 import * as THREE         from 'three';
@@ -685,9 +685,7 @@ function init() {
   });
 }
 
-/* Start after DOM + GSAP are ready */
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+/* Wait for window load so GSAP CDN script is guaranteed ready */
+window.addEventListener('load', () => {
+  requestAnimationFrame(() => requestAnimationFrame(init));
+});
