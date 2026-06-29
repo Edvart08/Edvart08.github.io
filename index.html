@@ -198,25 +198,25 @@
     .scanner-hint-bar { text-align: center; padding: 10px 20px; border-top: 1px solid rgba(0,245,255,0.06); font-family: 'Share Tech Mono', monospace; font-size: 0.64rem; color: var(--dim); letter-spacing: 3px; }
 
     /* ── AI Code Auditor ── */
-    .auditor-wrap { background:rgba(0,245,255,0.02); border:1px solid rgba(0,245,255,0.12); border-radius:16px; overflow:hidden; margin-top:56px; }
+    .auditor-wrap { background:rgba(0,245,255,0.02); border:1px solid rgba(0,245,255,0.12); border-radius:16px; overflow:hidden; margin-top:56px; margin-bottom:56px; }
     .auditor-head { display:flex; align-items:center; gap:14px; padding:20px 28px; border-bottom:1px solid rgba(0,245,255,0.08); background:rgba(0,245,255,0.03); }
     .auditor-head-icon { width:36px;height:36px;background:rgba(0,245,255,0.08);border:1px solid rgba(0,245,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem; }
-    .auditor-head-title { font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:700;color:var(--cyan);letter-spacing:3px; }
-    .auditor-head-sub { font-family:'Share Tech Mono',monospace;font-size:0.60rem;color:var(--dim);letter-spacing:2px;margin-top:2px; }
-    .auditor-status { margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:2px;color:var(--green);display:flex;align-items:center;gap:6px; }
-    .auditor-status-dot { width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:dotPulse 2s infinite; }
+    .auditor-head-title { font-family:'Orbitron',sans-serif;font-size:1.0rem;font-weight:700;color:var(--cyan);letter-spacing:3px; }
+    .auditor-head-sub { font-family:'Share Tech Mono',monospace;font-size:0.68rem;color:var(--dim);letter-spacing:2px;margin-top:3px; }
+    .auditor-status { margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:0.65rem;letter-spacing:2px;color:var(--green);display:flex;align-items:center;gap:6px; }
+    .auditor-status-dot { width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:dotPulse 2s infinite; }
     .auditor-body { padding:28px;display:grid;grid-template-columns:1fr 1fr;gap:20px; }
     @media(max-width:900px){ .auditor-body{grid-template-columns:1fr;} }
-    .auditor-input-col { display:flex;flex-direction:column;gap:12px; }
+    .auditor-input-col { display:flex;flex-direction:column;gap:14px; }
     .auditor-input-wrap { position:relative; }
-    .auditor-input-wrap::before { content:'//';position:absolute;left:14px;top:50%;transform:translateY(-50%);font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:rgba(0,245,255,0.35);pointer-events:none; }
-    .auditor-input { width:100%;padding:13px 14px 13px 36px;background:rgba(0,0,0,0.35);border:1px solid rgba(0,245,255,0.18);border-radius:8px;color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:0.78rem;letter-spacing:1px;outline:none;transition:border-color .25s,box-shadow .25s;cursor:none; }
+    .auditor-input-wrap::before { content:'//';position:absolute;left:14px;top:50%;transform:translateY(-50%);font-family:'Share Tech Mono',monospace;font-size:0.80rem;color:rgba(0,245,255,0.35);pointer-events:none; }
+    .auditor-input { width:100%;padding:14px 14px 14px 38px;background:rgba(0,0,0,0.35);border:1px solid rgba(0,245,255,0.18);border-radius:8px;color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:0.88rem;letter-spacing:1px;outline:none;transition:border-color .25s,box-shadow .25s;cursor:none; }
     .auditor-input::placeholder { color:rgba(0,245,255,0.3); }
     .auditor-input:focus { border-color:rgba(0,245,255,0.5);box-shadow:0 0 20px rgba(0,245,255,0.08); }
     .auditor-opts { display:flex;gap:8px;flex-wrap:wrap; }
-    .auditor-opt { padding:5px 12px;font-family:'Share Tech Mono',monospace;font-size:0.62rem;letter-spacing:1px;color:var(--dim);border:1px solid rgba(0,245,255,0.12);border-radius:4px;background:none;cursor:none;transition:all .2s; }
+    .auditor-opt { padding:6px 14px;font-family:'Share Tech Mono',monospace;font-size:0.70rem;letter-spacing:1px;color:var(--dim);border:1px solid rgba(0,245,255,0.12);border-radius:4px;background:none;cursor:none;transition:all .2s; }
     .auditor-opt:hover,.auditor-opt.active { color:var(--cyan);border-color:rgba(0,245,255,0.4);background:rgba(0,245,255,0.06); }
-    .auditor-run-btn { display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 24px;font-family:'Orbitron',sans-serif;font-size:0.72rem;letter-spacing:3px;color:var(--cyan);border:1px solid rgba(0,245,255,0.35);border-radius:8px;background:rgba(0,245,255,0.05);cursor:none;transition:all .25s;position:relative;overflow:hidden;width:100%; }
+    .auditor-run-btn { display:flex;align-items:center;justify-content:center;gap:10px;padding:15px 24px;font-family:'Orbitron',sans-serif;font-size:0.80rem;letter-spacing:3px;color:var(--cyan);border:1px solid rgba(0,245,255,0.35);border-radius:8px;background:rgba(0,245,255,0.05);cursor:none;transition:all .25s;position:relative;overflow:hidden;width:100%; }
     .auditor-run-btn:hover { background:rgba(0,245,255,0.10);border-color:rgba(0,245,255,0.7);box-shadow:0 0 28px rgba(0,245,255,0.15); }
     .auditor-run-btn:disabled { opacity:0.5;pointer-events:none; }
     .btn-spinner { display:none;width:14px;height:14px;border:2px solid rgba(0,245,255,0.25);border-top-color:var(--cyan);border-radius:50%;animation:spin 0.7s linear infinite; }
@@ -226,15 +226,22 @@
     .auditor-output-col { display:flex;flex-direction:column;gap:10px; }
     .auditor-terminal { flex:1;background:#080c18;border:1px solid rgba(0,245,255,0.10);border-radius:10px;overflow:hidden;min-height:200px; }
     .auditor-tbar { display:flex;align-items:center;gap:8px;padding:9px 14px;background:rgba(0,245,255,0.03);border-bottom:1px solid rgba(0,245,255,0.07); }
-    .auditor-tbar span { font-family:'Share Tech Mono',monospace;font-size:0.60rem;letter-spacing:2px;color:var(--dim);margin-left:4px; }
-    .auditor-tlog { padding:16px 18px;font-family:'Share Tech Mono',monospace;font-size:0.75rem;line-height:1.85;color:rgba(200,220,240,0.75);min-height:160px; }
+    .auditor-tbar span { font-family:'Share Tech Mono',monospace;font-size:0.65rem;letter-spacing:2px;color:var(--dim);margin-left:4px; }
+    .auditor-tlog { padding:18px 20px;font-family:'Share Tech Mono',monospace;font-size:0.82rem;line-height:1.90;color:rgba(200,220,240,0.80);min-height:160px; }
     .a-dim{color:var(--dim)} .a-cyan{color:var(--cyan)} .a-grn{color:var(--green)} .a-warn{color:#ffbd4f} .a-err{color:var(--pink)} .a-caret{color:var(--cyan);animation:blink .7s step-end infinite;}
-    .auditor-metrics { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;opacity:0;transition:opacity .4s; }
+    .auditor-metrics { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;opacity:0;transition:opacity .4s; }
     .auditor-metrics.visible { opacity:1; }
-    .auditor-metric { background:rgba(0,245,255,0.04);border:1px solid rgba(0,245,255,0.10);border-radius:8px;padding:12px 10px;text-align:center; }
-    .auditor-metric-val { font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:700;color:var(--cyan);line-height:1; }
+    .auditor-metric { background:rgba(0,245,255,0.04);border:1px solid rgba(0,245,255,0.10);border-radius:8px;padding:14px 10px;text-align:center; }
+    .auditor-metric-val { font-family:'Orbitron',monospace;font-size:1.25rem;font-weight:700;color:var(--cyan);line-height:1; }
     .auditor-metric-val.warn{color:#ffbd4f} .auditor-metric-val.ok{color:var(--green)}
-    .auditor-metric-lbl { font-family:'Share Tech Mono',monospace;font-size:0.50rem;letter-spacing:2px;color:var(--dim);margin-top:5px;text-transform:uppercase; }
+    .auditor-metric-lbl { font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:2px;color:var(--dim);margin-top:6px;text-transform:uppercase; }
+    /* Tips panel fills the empty space below metrics */
+    .auditor-tips { background:rgba(0,245,255,0.02);border:1px solid rgba(0,245,255,0.08);border-radius:10px;padding:18px 20px;flex:1; }
+    .auditor-tips-title { font-family:'Share Tech Mono',monospace;font-size:0.62rem;letter-spacing:3px;color:rgba(0,245,255,0.45);margin-bottom:14px; }
+    .auditor-tip { display:flex;gap:10px;margin-bottom:12px;align-items:flex-start; }
+    .auditor-tip:last-child { margin-bottom:0; }
+    .auditor-tip-icon { color:var(--cyan);font-size:0.75rem;opacity:0.6;flex-shrink:0;margin-top:1px; }
+    .auditor-tip-text { font-family:'Share Tech Mono',monospace;font-size:0.72rem;line-height:1.65;color:rgba(180,200,220,0.65); }
 
     /* Logo pulse dot */
     .logo-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin-left: 8px; vertical-align: middle; box-shadow: 0 0 6px var(--green); animation: dotPulse 2s ease-in-out infinite; }
@@ -506,6 +513,31 @@
             <div class="auditor-metric">
               <div class="auditor-metric-val" id="mScore">—</div>
               <div class="auditor-metric-lbl">Score</div>
+            </div>
+          </div>
+
+          <!-- Tips panel fills the empty left space -->
+          <div class="auditor-tips">
+            <div class="auditor-tips-title">// HOW TO USE</div>
+            <div class="auditor-tip">
+              <span class="auditor-tip-icon">▸</span>
+              <span class="auditor-tip-text">Вставь ссылку на GitHub файл:<br><span style="color:var(--cyan);opacity:0.7">github.com/user/repo/blob/main/app.py</span></span>
+            </div>
+            <div class="auditor-tip">
+              <span class="auditor-tip-icon">▸</span>
+              <span class="auditor-tip-text">Или вставь код напрямую в поле ввода и нажми RUN AUDIT</span>
+            </div>
+            <div class="auditor-tip">
+              <span class="auditor-tip-icon">▸</span>
+              <span class="auditor-tip-text">Выбери режим: <span style="color:var(--cyan)">SECURITY</span> — поиск уязвимостей, <span style="color:var(--cyan)">PERFORMANCE</span> — узкие места</span>
+            </div>
+            <div class="auditor-tip">
+              <span class="auditor-tip-icon">▸</span>
+              <span class="auditor-tip-text">Анализатор работает локально даже без подключения к серверу</span>
+            </div>
+            <div class="auditor-tip" style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(0,245,255,0.07);">
+              <span class="auditor-tip-icon" style="color:var(--green)">✓</span>
+              <span class="auditor-tip-text" style="color:rgba(0,255,136,0.60)">Поддерживает Python, JavaScript, TypeScript и другие языки</span>
             </div>
           </div>
         </div>
@@ -1444,42 +1476,80 @@ function init() {
   setInterval(()=>{ const el=wrap.querySelector('[data-wid="api"]'); if(el) el.textContent=90+Math.floor(Math.random()*60); },1200);
 
   /* ═══════════════════════════════════════════════════════
-     CLICK OVERLAY  — full-screen detail panel
+     CLICK OVERLAY  — full-screen detail panel (i18n-aware)
   ════════════════════════════════════════════════════════ */
-  const PROJECTS = {
+  const PROJECTS_DATA = {
     left: {
-      title: 'Fake News Detector',
-      subtitle: 'AI-powered credibility scanner',
+      ru: {
+        title: 'Fake News Detector',
+        subtitle: 'ИИ-сканер достоверности новостей',
+        desc: 'Telegram-бот для мгновенной проверки достоверности новостей. Анализирует источники, сравнивает факты через ИИ, выдаёт оценку правдивости с объяснением.',
+        githubLabel: '⌥ GitHub',
+        demoLabel:   '▶ Попробовать',
+      },
+      en: {
+        title: 'Fake News Detector',
+        subtitle: 'AI-powered credibility scanner',
+        desc: 'A Telegram bot that verifies news credibility in seconds. Analyzes sources, cross-checks facts via AI and gives a clear credibility score with explanation.',
+        githubLabel: '⌥ GitHub',
+        demoLabel:   '▶ Live Demo',
+      },
       color: '#00f5ff',
       accent: 'rgba(0,245,255,0.12)',
       border: 'rgba(0,245,255,0.30)',
-      stats: [
-        {label:'Accuracy',    value:'94.2%'},
-        {label:'Latency',     value:'~1.2s'},
-        {label:'Sources',     value:'142 DB'},
-        {label:'Uptime',      value:'99.8%'},
-      ],
+      stats: {
+        ru: [
+          {label:'Точность',  value:'94.2%'},
+          {label:'Задержка',  value:'~1.2s'},
+          {label:'Источники', value:'142 DB'},
+          {label:'Аптайм',    value:'99.8%'},
+        ],
+        en: [
+          {label:'Accuracy', value:'94.2%'},
+          {label:'Latency',  value:'~1.2s'},
+          {label:'Sources',  value:'142 DB'},
+          {label:'Uptime',   value:'99.8%'},
+        ],
+      },
       stack: ['Python','FastAPI','OpenAI GPT-4o','NLP','Aiogram'],
-      desc: 'Telegram-бот для мгновенной проверки достоверности новостей. Анализирует источники, сравнивает факты через ИИ, выдаёт оценку правдивости с объяснением.',
-      github: 'https://github.com',
-      demo:   'https://t.me',
+      github: 'https://github.com/Edvart08',
+      demo:   'https://t.me/NewsCheccker_bot',
     },
     right: {
-      title: 'CS2 AI Coach',
-      subtitle: 'Personal AI trainer for Counter-Strike 2',
+      ru: {
+        title: 'CS2 AI Coach',
+        subtitle: 'Персональный ИИ-тренер для CS2',
+        desc: 'Персональный ИИ-тренер для CS2. Анализирует геймплей, выявляет слабые места, даёт конкретные советы по улучшению позиционирования и прицеливания.',
+        githubLabel: '⌥ GitHub',
+        demoLabel:   '▶ Сайт',
+      },
+      en: {
+        title: 'CS2 AI Coach',
+        subtitle: 'Personal AI trainer for Counter-Strike 2',
+        desc: 'A personal AI trainer for CS2. Analyzes gameplay, identifies weak spots, and delivers concrete improvement tips on positioning and aim.',
+        githubLabel: '⌥ GitHub',
+        demoLabel:   '▶ Live Site',
+      },
       color: '#aa66ff',
       accent: 'rgba(170,102,255,0.12)',
       border: 'rgba(170,102,255,0.30)',
-      stats: [
-        {label:'Winrate boost', value:'+14.2%'},
-        {label:'Sessions',      value:'400+'},
-        {label:'Positions',     value:'1,247'},
-        {label:'Errors found',  value:'34/game'},
-      ],
+      stats: {
+        ru: [
+          {label:'Рост винрейта', value:'+14.2%'},
+          {label:'Сессий',        value:'400+'},
+          {label:'Позиций',       value:'1,247'},
+          {label:'Ошибок/игра',   value:'34'},
+        ],
+        en: [
+          {label:'Winrate boost', value:'+14.2%'},
+          {label:'Sessions',      value:'400+'},
+          {label:'Positions',     value:'1,247'},
+          {label:'Errors/game',   value:'34'},
+        ],
+      },
       stack: ['Python','Aiogram','Groq LLaMA-3','Redis','CV2'],
-      desc: 'Персональный ИИ-тренер для CS2. Анализирует геймплей, выявляет слабые места, даёт конкретные советы по улучшению позиционирования и прицеливания.',
-      github: 'https://github.com',
-      demo:   'https://t.me',
+      github: 'https://github.com/Edvart08',
+      demo:   'https://cs-coach.ru/',
     },
   };
 
@@ -1513,9 +1583,22 @@ function init() {
   let overlayOpen = false;
 
   function openOverlay(side) {
-    const p = PROJECTS[side];
-    overlayCard.style.border = `1px solid ${p.border}`;
-    overlayCard.style.boxShadow = `0 0 80px ${p.accent}, inset 0 0 60px ${p.accent}`;
+    const lang = window.currentLang || 'ru';
+    const raw  = PROJECTS_DATA[side];
+    const loc  = raw[lang];
+    const p = {
+      ...loc,
+      color:  raw.color,
+      accent: raw.accent,
+      border: raw.border,
+      stats:  raw.stats[lang],
+      stack:  raw.stack,
+      github: raw.github,
+      demo:   raw.demo,
+    };
+
+    overlayCard.style.border     = `1px solid ${p.border}`;
+    overlayCard.style.boxShadow  = `0 0 80px ${p.accent}, inset 0 0 60px ${p.accent}`;
 
     overlayCard.innerHTML = `
       <button id="ovClose" style="position:absolute;top:16px;right:20px;background:none;border:1px solid ${p.border};border-radius:6px;color:${p.color};font-family:'Share Tech Mono',monospace;font-size:0.70rem;letter-spacing:2px;padding:5px 12px;cursor:pointer;transition:all .2s;"
@@ -1530,8 +1613,8 @@ function init() {
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px;">
         ${p.stats.map(s=>`
           <div style="background:${p.accent};border:1px solid ${p.border};border-radius:8px;padding:12px 8px;text-align:center;">
-            <div style="color:${p.color};font-size:1.1rem;font-weight:700;letter-spacing:1px;">${s.value}</div>
-            <div style="color:rgba(180,200,220,0.55);font-size:0.50rem;letter-spacing:2px;margin-top:4px;">${s.label}</div>
+            <div style="color:${p.color};font-size:1.25rem;font-weight:700;letter-spacing:1px;">${s.value}</div>
+            <div style="color:rgba(180,200,220,0.70);font-size:0.62rem;letter-spacing:2px;margin-top:5px;text-transform:uppercase;">${s.label}</div>
           </div>`).join('')}
       </div>
 
@@ -1545,11 +1628,11 @@ function init() {
       <div style="display:flex;gap:14px;flex-wrap:wrap;">
         <a href="${p.github}" target="_blank" style="display:flex;align-items:center;gap:8px;background:${p.accent};border:1px solid ${p.border};color:${p.color};text-decoration:none;font-size:0.68rem;letter-spacing:2px;padding:10px 22px;border-radius:6px;transition:all .2s;"
           onmouseover="this.style.background='${p.border}'" onmouseout="this.style.background='${p.accent}'">
-          ⌥ GitHub
+          ${p.githubLabel}
         </a>
         <a href="${p.demo}" target="_blank" style="display:flex;align-items:center;gap:8px;background:transparent;border:1px solid ${p.border};color:${p.color};text-decoration:none;font-size:0.68rem;letter-spacing:2px;padding:10px 22px;border-radius:6px;transition:all .2s;"
           onmouseover="this.style.background='${p.accent}'" onmouseout="this.style.background='transparent'">
-          ▶ Live Demo
+          ${p.demoLabel}
         </a>
       </div>`;
 
