@@ -2554,24 +2554,27 @@ addEventListener('click', e => {
       /* ── SAMURAI: score badge top-right, metrics stacked left edge,
                      content flows like a vertical scroll. No solid
                      header block — title sits directly on the bright
-                     background image, in dark ink-like text. ── */
+                     background image, in dark ink-like text.
+                     Extra horizontal margin (SM) keeps text clear of the
+                     image's darker vignette edges. ── */
+      const SM = M + 10; // samurai margin — wider than the base M
       doc.setDrawColor(...P.border); doc.setLineWidth(1.5);
       doc.line(0, 32, W, 32);
       doc.setTextColor(20, 15, 10); doc.setFont(baseFont, 'bold'); doc.setFontSize(18);
-      doc.text(T.titles.samurai, M, 16);
+      doc.text(T.titles.samurai, SM, 16);
       doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(40, 30, 22);
-      doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}`, M, 24);
-      doc.text(`${T.mode}: ${(result.mode||'auto').toUpperCase()}  ·  ${T.engine}: ${result.usedAI ? T.engineAI : T.engineLocal}`, M, 29);
+      doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}`, SM, 24);
+      doc.text(`${T.mode}: ${(result.mode||'auto').toUpperCase()}  ·  ${T.engine}: ${result.usedAI ? T.engineAI : T.engineLocal}`, SM, 29);
 
       // Score badge, large, top-right corner
       const scoreCol = (result.score||0) >= 80 ? P.ok : (result.score||0) >= 50 ? P.accent : P.err;
       doc.setFillColor(...P.panel); doc.setDrawColor(...scoreCol); doc.setLineWidth(0.6);
-      doc.circle(W - 24, 16, 13, 'FD');
+      doc.circle(W - SM - 8, 16, 13, 'FD');
       doc.setFont(baseFont, 'bold'); doc.setFontSize(16); doc.setTextColor(...scoreCol);
-      doc.text(String(result.score ?? 0), W - 24, 19, { align: 'center' });
+      doc.text(String(result.score ?? 0), W - SM - 8, 19, { align: 'center' });
 
       y = 42;
-      y = drawModeBanner(doc, P, T, result, M, y, W - M*2, baseFont);
+      y = drawModeBanner(doc, P, T, result, SM, y, W - SM*2, baseFont);
       // Two slim metric chips (complexity + issues) stacked left, narrow
       const chipW = 50, chipH = 14;
       const chipData = [
@@ -2579,7 +2582,7 @@ addEventListener('click', e => {
         { label: T.metricIssues, value: String(result.issues_found ?? 0), color: (result.issues_found||0) > 5 ? P.warn : P.ok },
       ];
       chipData.forEach((c, i) => {
-        const cx = M + i * (chipW + 6);
+        const cx = SM + i * (chipW + 6);
         doc.setFillColor(...P.panel); doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
         doc.rect(cx, y, chipW, chipH, 'FD');
         drawCorner(doc, cx, y, 3.5, P.cornerStyle, P.accent);
@@ -2590,22 +2593,22 @@ addEventListener('click', e => {
       });
       y += chipH + 10;
 
-      doc.setDrawColor(...P.border); doc.line(M, y, W-M, y); y += 7;
+      doc.setDrawColor(...P.border); doc.line(SM, y, W-SM, y); y += 7;
       doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
-      doc.text(T.summaryTitle, M, y); y += 6;
+      doc.text(T.summaryTitle, SM, y); y += 6;
       doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.text);
-      const sumLines = wrapText(doc, result.summary || '', W - M*2);
-      doc.text(sumLines, M, y); y += sumLines.length * 4.4 + 8;
+      const sumLines = wrapText(doc, result.summary || '', W - SM*2);
+      doc.text(sumLines, SM, y); y += sumLines.length * 4.4 + 8;
 
-      doc.setDrawColor(...P.border); doc.line(M, y, W-M, y); y += 7;
+      doc.setDrawColor(...P.border); doc.line(SM, y, W-SM, y); y += 7;
       doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
-      doc.text(T.issuesTitle, M, y); y += 7;
+      doc.text(T.issuesTitle, SM, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M, presetKey); }
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, SM, y, W - SM*2, H, SM, presetKey); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.ok);
-        doc.text(T.noIssues, M, y);
+        doc.text(T.noIssues, SM, y);
       }
 
     } else {
