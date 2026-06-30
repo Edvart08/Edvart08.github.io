@@ -890,19 +890,16 @@ class Node {
     this.vx *= this.boostT > 0 ? 0.95 : 0.992;
     this.vy *= this.boostT > 0 ? 0.95 : 0.992;
     this.x += this.vx * dt; this.y += this.vy * dt;
-    // Soft edge bounce — gentler than before so particles don't get stuck pinned to the border
-    const margin = 80;
-    if (this.x < margin)     this.vx += (margin - this.x) * 0.012;
-    if (this.x > W - margin) this.vx -= (this.x - (W - margin)) * 0.012;
-    if (this.y < margin)     this.vy += (margin - this.y) * 0.012;
-    if (this.y > H - margin) this.vy -= (this.y - (H - margin)) * 0.012;
-    // Very weak constant bias toward the full-screen center — just enough to
-    // counter long-term edge drift, not strong enough to visibly clump particles
-    this.vx += (W/2 - this.x) * 0.00006;
-    this.vy += (H/2 - this.y) * 0.00006;
+    // Soft edge bounce only — no center bias whatsoever (any constant pull,
+    // however weak, accumulates over time into a visible ring/hole pattern)
+    const margin = 60;
+    if (this.x < margin)     this.vx += (margin - this.x) * 0.02;
+    if (this.x > W - margin) this.vx -= (this.x - (W - margin)) * 0.02;
+    if (this.y < margin)     this.vy += (margin - this.y) * 0.02;
+    if (this.y > H - margin) this.vy -= (this.y - (H - margin)) * 0.02;
     if (this.x < -200 || this.x > W+200 || this.y < -200 || this.y > H+200) {
-      this.x = W*0.25 + Math.random()*W*0.5;
-      this.y = H*0.25 + Math.random()*H*0.5;
+      this.x = Math.random()*W;
+      this.y = Math.random()*H;
       this.vx = (Math.random()-0.5)*0.12; this.vy = (Math.random()-0.5)*0.12;
     }
   }
@@ -937,46 +934,76 @@ class Packet {
   }
 }
 
-const N_NODES = innerWidth < 600 ? 40 : 150;
+const IS_MOBILE = innerWidth < 760 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const N_NODES = IS_MOBILE ? 26 : 150;
+// On mobile, connection lines are the most expensive part (O(n²) stroke calls).
+// Cap how many pairs we even consider, and skip the glow-near-mouse calc entirely.
+const MAX_CONNECT_DIST = IS_MOBILE ? 90 : 130;
 const PS = Array.from({length: N_NODES}, () => new Node(true));
 let packets = [];
 let lastPacketTime = 0;
 let lastTime = performance.now();
+let frameSkip = 0;
 
 (function loop(now = performance.now()){
   requestAnimationFrame(loop);
+
+  // Throttle to ~30fps on mobile to cut CPU/GPU load in half
+  if (IS_MOBILE) {
+    frameSkip++;
+    if (frameSkip % 2 !== 0) return;
+  }
+
   const dt = Math.min((now - lastTime) / 16.67, 3);
   lastTime = now;
 
   ctx.clearRect(0, 0, W, H);
 
-  // Spawn packets periodically
-  if (now - lastPacketTime > 220 && packets.length < 25) {
+  // Spawn packets periodically (fewer + slower on mobile)
+  const maxPackets = IS_MOBILE ? 8 : 25;
+  if (now - lastPacketTime > (IS_MOBILE ? 450 : 220) && packets.length < maxPackets) {
     const i = Math.floor(Math.random() * PS.length);
     const j = Math.floor(Math.random() * PS.length);
     if (i !== j) { packets.push(new Packet(PS[i], PS[j])); }
     lastPacketTime = now;
   }
 
-  // Draw connections with distance-based opacity + color shift near mouse
+  // Draw connections — single shared path per frame (one stroke call instead
+  // of hundreds) and skip the expensive near-mouse glow calc on mobile
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(0,245,255,0.10)';
+  ctx.lineWidth = 0.6;
   for (let i = 0; i < PS.length; i++) {
     for (let j = i + 1; j < PS.length; j++) {
       const dx = PS[i].x - PS[j].x, dy = PS[i].y - PS[j].y;
-      const d = Math.sqrt(dx*dx + dy*dy);
-      if (d < 130) {
-        const alpha = 0.12 * (1 - d / 130);
-        // lines near mouse glow cyan
-        const mdx = (PS[i].x + PS[j].x)/2 - mouseX, mdy = (PS[i].y + PS[j].y)/2 - mouseY;
-        const md = Math.sqrt(mdx*mdx + mdy*mdy);
-        const boost = md < 180 ? (1 - md/180) * 3 : 0;
-        ctx.beginPath();
-        ctx.strokeStyle = `rgba(0,245,255,${alpha + boost * 0.15})`;
-        ctx.lineWidth = 0.5 + boost * 0.8;
+      const d2 = dx*dx + dy*dy;
+      if (d2 < MAX_CONNECT_DIST * MAX_CONNECT_DIST) {
         ctx.moveTo(PS[i].x, PS[i].y);
         ctx.lineTo(PS[j].x, PS[j].y);
-        ctx.stroke();
       }
     }
+  }
+  ctx.stroke();
+
+  // Desktop-only: extra bright glow near mouse, drawn as a second pass
+  if (!IS_MOBILE) {
+    ctx.beginPath();
+    for (let i = 0; i < PS.length; i++) {
+      for (let j = i + 1; j < PS.length; j++) {
+        const mdx = (PS[i].x + PS[j].x)/2 - mouseX, mdy = (PS[i].y + PS[j].y)/2 - mouseY;
+        const md2 = mdx*mdx + mdy*mdy;
+        if (md2 < 180*180) {
+          const dx = PS[i].x - PS[j].x, dy = PS[i].y - PS[j].y;
+          if (dx*dx + dy*dy < MAX_CONNECT_DIST*MAX_CONNECT_DIST) {
+            ctx.moveTo(PS[i].x, PS[i].y);
+            ctx.lineTo(PS[j].x, PS[j].y);
+          }
+        }
+      }
+    }
+    ctx.strokeStyle = 'rgba(0,245,255,0.18)';
+    ctx.lineWidth = 1.0;
+    ctx.stroke();
   }
 
   // Update & draw packets
@@ -1728,6 +1755,9 @@ addEventListener('click', e => {
 (function(){
   const gc = document.getElementById('heroGlobe');
   if (!gc) return;
+  // Hidden via CSS on screens <900px — skip the whole engine so it doesn't
+  // burn CPU computing a graph nobody can see (a major mobile lag source).
+  if (innerWidth < 900) return;
   const gx = gc.getContext('2d');
   let GW, GH;
 
@@ -2519,7 +2549,11 @@ function init() {
   /* ── Post-processing ── */
   const composer=new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene,camera));
-  const bloom=new UnrealBloomPass(new THREE.Vector2(W,CANVAS_H),0.85,0.60,0.22);
+  // Bloom is the single most expensive GPU pass here. On mobile, render it
+  // at a much lower internal resolution — visually still reads as a glow,
+  // but costs a fraction of the GPU time.
+  const bloomRes = isNarrow ? new THREE.Vector2(W*0.5, CANVAS_H*0.5) : new THREE.Vector2(W,CANVAS_H);
+  const bloom=new UnrealBloomPass(bloomRes, isNarrow?0.65:0.85, 0.60, 0.22);
   composer.addPass(bloom);
 
   /* ── Interaction ── */
