@@ -1782,6 +1782,11 @@ addEventListener('click', e => {
     if (!r.ok) {
       let detail = '';
       try { detail = (await r.json()).error || ''; } catch {}
+      if (r.status === 429) {
+        // This is Groq's own free-tier rate limit (30 req/min, 1000/day,
+        // 12K tokens/min) — not a bug, just a quota that resets shortly.
+        throw new Error(detail || 'Groq free-tier limit reached — wait about a minute and retry');
+      }
       throw new Error(`Proxy returned ${r.status}${detail ? ': ' + detail : ''}`);
     }
     return await r.json();
