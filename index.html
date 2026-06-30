@@ -2111,8 +2111,8 @@ addEventListener('click', e => {
     medieval: {
       bg: [243,232,201], panel: [233,217,176], border: [110,80,40],
       headerBg: [60,40,20], headerText: [233,217,176],
-      accent: [120,30,30], text: [50,35,15], dim: [110,90,60],
-      ok: [60,90,40], warn: [150,90,20], err: [120,25,25],
+      accent: [120,30,30], text: [15,10,5], dim: [80,60,35],
+      ok: [40,70,25], warn: [140,80,15], err: [110,20,20],
       cornerStyle: 'ornate',
       layout: 'centered',     // metrics centered under a banner, wide margins
     },
@@ -2383,6 +2383,16 @@ addEventListener('click', e => {
   // (avoids a visible delay on first export).
   Object.values(THEME_BG_FILES).forEach(path => { loadImageAsDataURL(path); });
 
+  // Per-style overlay darkness — medieval gets NO overlay (parchment stays
+  // bright as-is, dark ink-colored text handles contrast instead).
+  // Cyberpunk/samurai keep a light overlay since their source images tend
+  // to be busier/brighter in spots and need it for text legibility.
+  const THEME_OVERLAY_OPACITY = {
+    medieval:  0,
+    cyberpunk: 0.30,
+    samurai:   0.30,
+  };
+
   async function drawThemeBackgroundImage(doc, presetKey, W, H) {
     const file = THEME_BG_FILES[presetKey];
     if (!file) return; // office — no background image by design
@@ -2390,12 +2400,13 @@ addEventListener('click', e => {
     if (!dataUrl) return; // file missing/failed — flat color background remains
     try {
       doc.addImage(dataUrl, 'JPEG', 0, 0, W, H, undefined, 'FAST');
-      // Slight dark overlay so report text stays readable over any photo,
-      // regardless of how bright the source image is.
-      doc.setFillColor(0, 0, 0);
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.40 })); } catch(_) {}
-      doc.rect(0, 0, W, H, 'F');
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
+      const overlayOp = THEME_OVERLAY_OPACITY[presetKey] ?? 0.30;
+      if (overlayOp > 0) {
+        doc.setFillColor(0, 0, 0);
+        try { doc.setGState && doc.setGState(new doc.GState({ opacity: overlayOp })); } catch(_) {}
+        doc.rect(0, 0, W, H, 'F');
+        try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
+      }
     } catch (e) {
       console.warn('Failed to draw background image for', presetKey, e);
     }
@@ -2482,18 +2493,16 @@ addEventListener('click', e => {
       }
 
     } else if (P.layout === 'centered') {
-      /* ── MEDIEVAL: centered banner + centered metrics, wide margins ── */
+      /* ── MEDIEVAL: centered banner + centered metrics, wide margins ──
+         No solid header block — title sits directly on the parchment
+         background image, in dark ink-like text for readability. ── */
       const M2 = 24;
-      doc.setFillColor(...P.headerBg);
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.55 })); } catch(_) {}
-      doc.rect(0, 0, W, 30, 'F');
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
       doc.setDrawColor(...P.border); doc.setLineWidth(1);
       doc.line(M2*0.5, 32, W-M2*0.5, 32);
-      doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(16);
-      doc.text(T.titles.medieval, W/2, 14, { align: 'center' });
-      doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(...P.headerText);
-      doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}  ·  ${T.mode}: ${(result.mode||'auto').toUpperCase()}`, W/2, 22, { align: 'center' });
+      doc.setTextColor(40, 30, 15); doc.setFont(baseFont, 'bold'); doc.setFontSize(18);
+      doc.text(T.titles.medieval, W/2, 16, { align: 'center' });
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(8.5); doc.setTextColor(60, 45, 25);
+      doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}  ·  ${T.mode}: ${(result.mode||'auto').toUpperCase()}`, W/2, 24, { align: 'center' });
 
       y = 42;
       const metricsW = W - M2*2;
@@ -2504,7 +2513,7 @@ addEventListener('click', e => {
       doc.setDrawColor(...P.border); doc.line(M2, y, W-M2, y); y += 8;
       doc.setFont(baseFont, 'bold'); doc.setFontSize(12); doc.setTextColor(...P.accent);
       doc.text(T.summaryTitle, W/2, y, { align: 'center' }); y += 7;
-      doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(40, 30, 15);
       const sumLines = wrapText(doc, result.summary || '', metricsW - 10);
       doc.text(sumLines, W/2, y, { align: 'center' });
       y += sumLines.length * 4.6 + 10;
