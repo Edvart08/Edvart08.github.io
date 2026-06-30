@@ -2170,12 +2170,17 @@ addEventListener('click', e => {
     }
   }
 
-  // Ensures we never write past the bottom margin without paginating
-  function ensureSpace(doc, y, needed, P, H, M) {
+  // Ensures we never write past the bottom margin without paginating.
+  // Also re-applies the theme background image on every new page, not
+  // just the first — otherwise styles with a photo background would only
+  // show it on page 1 and fall back to flat color on page 2+.
+  async function ensureSpace(doc, y, needed, P, H, M, presetKey) {
     if (y + needed > H - 20) {
       doc.addPage();
+      const W = doc.internal.pageSize.getWidth();
       doc.setFillColor(...P.bg);
-      doc.rect(0, 0, doc.internal.pageSize.getWidth(), H, 'F');
+      doc.rect(0, 0, W, H, 'F');
+      if (presetKey) await drawThemeBackgroundImage(doc, presetKey, W, H);
       return M;
     }
     return y;
@@ -2226,8 +2231,8 @@ addEventListener('click', e => {
         why it matters, how to fix it, and an optional code sample.
         Shared across all layouts; only x/width/colors change.
   ───────────────────────────────────────────────────────────── */
-  function drawIssueCard(doc, P, T, iss, x, y, width, H, M) {
-    y = ensureSpace(doc, y, 14, P, H, M);
+  async function drawIssueCard(doc, P, T, iss, x, y, width, H, M, presetKey) {
+    y = await ensureSpace(doc, y, 14, P, H, M, presetKey);
     const col = iss.type === 'err' ? P.err : P.warn;
 
     // Severity badge + title
@@ -2241,42 +2246,42 @@ addEventListener('click', e => {
 
     doc.setFont('Roboto', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
     const titleLines = wrapText(doc, iss.label, width - 6);
-    y = ensureSpace(doc, y, titleLines.length*4.4, P, H, M);
+    y = await ensureSpace(doc, y, titleLines.length*4.4, P, H, M, presetKey);
     doc.text(titleLines, x + 6, y);
     y += titleLines.length * 4.4 + 3;
 
     // WHY
     if (iss.why) {
-      y = ensureSpace(doc, y, 10, P, H, M);
+      y = await ensureSpace(doc, y, 10, P, H, M, presetKey);
       doc.setFont('Roboto', 'bold'); doc.setFontSize(7.8); doc.setTextColor(...P.accent);
       doc.text(T.whyLabel, x + 6, y); y += 4;
       doc.setFont('Roboto', 'normal'); doc.setFontSize(8.2); doc.setTextColor(...P.text);
       const whyLines = wrapText(doc, iss.why, width - 6);
-      y = ensureSpace(doc, y, whyLines.length*4, P, H, M);
+      y = await ensureSpace(doc, y, whyLines.length*4, P, H, M, presetKey);
       doc.text(whyLines, x + 6, y);
       y += whyLines.length * 4 + 3;
     }
 
     // FIX
     if (iss.fix) {
-      y = ensureSpace(doc, y, 10, P, H, M);
+      y = await ensureSpace(doc, y, 10, P, H, M, presetKey);
       doc.setFont('Roboto', 'bold'); doc.setFontSize(7.8); doc.setTextColor(...P.ok);
       doc.text(T.fixLabel, x + 6, y); y += 4;
       doc.setFont('Roboto', 'normal'); doc.setFontSize(8.2); doc.setTextColor(...P.text);
       const fixLines = wrapText(doc, iss.fix, width - 6);
-      y = ensureSpace(doc, y, fixLines.length*4, P, H, M);
+      y = await ensureSpace(doc, y, fixLines.length*4, P, H, M, presetKey);
       doc.text(fixLines, x + 6, y);
       y += fixLines.length * 4 + 3;
     }
 
     // CODE EXAMPLE
     if (iss.fixCode && iss.fixCode.trim()) {
-      y = ensureSpace(doc, y, 14, P, H, M);
+      y = await ensureSpace(doc, y, 14, P, H, M, presetKey);
       doc.setFont('Roboto', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...P.dim);
       doc.text(T.codeLabel, x + 6, y); y += 4;
       const codeLines = String(iss.fixCode).split('\n').slice(0, 8);
       const codeBoxH = codeLines.length * 4.2 + 4;
-      y = ensureSpace(doc, y, codeBoxH, P, H, M);
+      y = await ensureSpace(doc, y, codeBoxH, P, H, M, presetKey);
       doc.setFillColor(P.bg[0]<128?40:20, P.bg[0]<128?42:22, P.bg[0]<128?48:26);
       doc.roundedRect(x + 4, y - 2, width - 8, codeBoxH, 1, 1, 'F');
       doc.setFont('courier', 'normal'); doc.setFontSize(7.6);
@@ -2423,7 +2428,9 @@ addEventListener('click', e => {
       /* ── CYBERPUNK: left sidebar (metrics) + right content column ── */
       const sideW = 52;
       doc.setFillColor(...P.headerBg);
+      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.55 })); } catch(_) {}
       doc.rect(0, 0, W, 30, 'F');
+      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
       doc.setDrawColor(...P.accent); doc.setLineWidth(0.4);
       doc.line(0, 30, W, 30); doc.line(0, 28.8, W, 28.8);
       doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(17);
@@ -2468,7 +2475,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitleCyber, cx, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        result.issues.forEach(iss => { y = drawIssueCard(doc, P, T, iss, cx, y, cw, H, 40); });
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, cx, y, cw, H, 40, presetKey); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, cx, y);
@@ -2478,7 +2485,9 @@ addEventListener('click', e => {
       /* ── MEDIEVAL: centered banner + centered metrics, wide margins ── */
       const M2 = 24;
       doc.setFillColor(...P.headerBg);
+      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.55 })); } catch(_) {}
       doc.rect(0, 0, W, 30, 'F');
+      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
       doc.setDrawColor(...P.border); doc.setLineWidth(1);
       doc.line(M2*0.5, 32, W-M2*0.5, 32);
       doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(16);
@@ -2505,7 +2514,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitle, W/2, y, { align: 'center' }); y += 8;
 
       if (result.issues && result.issues.length) {
-        result.issues.forEach(iss => { y = drawIssueCard(doc, P, T, iss, M2, y, metricsW, H, M2); });
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M2, y, metricsW, H, M2, presetKey); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, W/2, y, { align: 'center' });
@@ -2515,7 +2524,9 @@ addEventListener('click', e => {
       /* ── SAMURAI: score badge top-right, metrics stacked left edge,
                      content flows like a vertical scroll ── */
       doc.setFillColor(...P.headerBg);
+      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.55 })); } catch(_) {}
       doc.rect(0, 0, W, 32, 'F');
+      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
       doc.setDrawColor(...P.border); doc.setLineWidth(1.5);
       doc.line(0, 32, W, 32);
       doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(18);
@@ -2563,7 +2574,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitle, M, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        result.issues.forEach(iss => { y = drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M); });
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M, presetKey); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, M, y);
@@ -2602,7 +2613,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitle, M, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        result.issues.forEach(iss => { y = drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M); });
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M, presetKey); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, M, y);
