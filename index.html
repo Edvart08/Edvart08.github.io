@@ -2212,7 +2212,7 @@ addEventListener('click', e => {
       return presetFontName;
     }
     if (hasRoboto) {
-      doc.setFont('Roboto', 'normal');
+      doc.setFont(baseFont, 'normal');
       return 'Roboto';
     }
     doc.setFont('helvetica', 'normal');
@@ -2261,7 +2261,7 @@ addEventListener('click', e => {
      4) METRICS ROW — shared drawing routine used by every layout,
         but called with different x/y/width depending on the style.
   ───────────────────────────────────────────────────────────── */
-  function drawMetrics(doc, P, T, result, x, y, totalWidth, boxH, vertical) {
+  function drawMetrics(doc, P, T, result, x, y, totalWidth, boxH, vertical, baseFont) {
     const metricData = [
       { label: T.metricComplexity, value: result.complexity || '—', color: result.complexity === 'High' ? P.warn : result.complexity === 'Low' ? P.ok : P.accent },
       { label: T.metricIssues,     value: String(result.issues_found ?? 0), color: (result.issues_found||0) > 5 ? P.warn : P.ok },
@@ -2274,9 +2274,9 @@ addEventListener('click', e => {
         doc.setFillColor(...P.panel); doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
         doc.roundedRect(x, by, totalWidth, bh, P.cornerStyle==='notch'?0:1.5, P.cornerStyle==='notch'?0:1.5, 'FD');
         drawCorner(doc, x, by, 4, P.cornerStyle, P.accent);
-        doc.setFont('Roboto', 'bold'); doc.setFontSize(15); doc.setTextColor(...m.color);
+        doc.setFont(baseFont, 'bold'); doc.setFontSize(15); doc.setTextColor(...m.color);
         doc.text(m.value, x + totalWidth/2, by + bh*0.45, { align: 'center' });
-        doc.setFont('Roboto', 'normal'); doc.setFontSize(6.3); doc.setTextColor(...P.dim);
+        doc.setFont(baseFont, 'normal'); doc.setFontSize(6.3); doc.setTextColor(...P.dim);
         doc.text(m.label, x + totalWidth/2, by + bh*0.75, { align: 'center', maxWidth: totalWidth - 4 });
       });
       return y + metricData.length * (bh + 5);
@@ -2288,9 +2288,9 @@ addEventListener('click', e => {
         doc.setFillColor(...P.panel); doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
         doc.roundedRect(bx, y, boxW, boxH, P.cornerStyle==='notch'?0:1.5, P.cornerStyle==='notch'?0:1.5, 'FD');
         drawCorner(doc, bx, y, 4, P.cornerStyle, P.accent);
-        doc.setFont('Roboto', 'bold'); doc.setFontSize(15); doc.setTextColor(...m.color);
+        doc.setFont(baseFont, 'bold'); doc.setFontSize(15); doc.setTextColor(...m.color);
         doc.text(m.value, bx + boxW/2, y + boxH*0.55, { align: 'center' });
-        doc.setFont('Roboto', 'normal'); doc.setFontSize(6.3); doc.setTextColor(...P.dim);
+        doc.setFont(baseFont, 'normal'); doc.setFontSize(6.3); doc.setTextColor(...P.dim);
         doc.text(m.label, bx + boxW/2, y + boxH*0.82, { align: 'center' });
       });
       return y + boxH;
@@ -2302,20 +2302,20 @@ addEventListener('click', e => {
         why it matters, how to fix it, and an optional code sample.
         Shared across all layouts; only x/width/colors change.
   ───────────────────────────────────────────────────────────── */
-  async function drawIssueCard(doc, P, T, iss, x, y, width, H, M, presetKey) {
+  async function drawIssueCard(doc, P, T, iss, x, y, width, H, M, presetKey, baseFont) {
     y = await ensureSpace(doc, y, 14, P, H, M, presetKey);
     const col = iss.type === 'err' ? P.err : P.warn;
 
     // Severity badge + title
     doc.setFillColor(...col);
     doc.circle(x + 1.6, y - 1.2, 1.6, 'F');
-    doc.setFont('Roboto', 'bold'); doc.setFontSize(9); doc.setTextColor(...col);
+    doc.setFont(baseFont, 'bold'); doc.setFontSize(9); doc.setTextColor(...col);
     const lineTag = iss.line ? `[L${iss.line}] ` : '';
     const sevTag = iss.type === 'err' ? T.issueCritical : T.issueWarning;
     doc.text(`${lineTag}${sevTag}`, x + 6, y);
     y += 4.8;
 
-    doc.setFont('Roboto', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
+    doc.setFont(baseFont, 'bold'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
     const titleLines = wrapText(doc, iss.label, width - 6);
     y = await ensureSpace(doc, y, titleLines.length*4.4, P, H, M, presetKey);
     doc.text(titleLines, x + 6, y);
@@ -2324,9 +2324,9 @@ addEventListener('click', e => {
     // WHY
     if (iss.why) {
       y = await ensureSpace(doc, y, 10, P, H, M, presetKey);
-      doc.setFont('Roboto', 'bold'); doc.setFontSize(7.8); doc.setTextColor(...P.accent);
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(7.8); doc.setTextColor(...P.accent);
       doc.text(T.whyLabel, x + 6, y); y += 4;
-      doc.setFont('Roboto', 'normal'); doc.setFontSize(8.2); doc.setTextColor(...P.text);
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(8.2); doc.setTextColor(...P.text);
       const whyLines = wrapText(doc, iss.why, width - 6);
       y = await ensureSpace(doc, y, whyLines.length*4, P, H, M, presetKey);
       doc.text(whyLines, x + 6, y);
@@ -2336,9 +2336,9 @@ addEventListener('click', e => {
     // FIX
     if (iss.fix) {
       y = await ensureSpace(doc, y, 10, P, H, M, presetKey);
-      doc.setFont('Roboto', 'bold'); doc.setFontSize(7.8); doc.setTextColor(...P.ok);
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(7.8); doc.setTextColor(...P.ok);
       doc.text(T.fixLabel, x + 6, y); y += 4;
-      doc.setFont('Roboto', 'normal'); doc.setFontSize(8.2); doc.setTextColor(...P.text);
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(8.2); doc.setTextColor(...P.text);
       const fixLines = wrapText(doc, iss.fix, width - 6);
       y = await ensureSpace(doc, y, fixLines.length*4, P, H, M, presetKey);
       doc.text(fixLines, x + 6, y);
@@ -2348,7 +2348,7 @@ addEventListener('click', e => {
     // CODE EXAMPLE
     if (iss.fixCode && iss.fixCode.trim()) {
       y = await ensureSpace(doc, y, 14, P, H, M, presetKey);
-      doc.setFont('Roboto', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...P.dim);
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(7.5); doc.setTextColor(...P.dim);
       doc.text(T.codeLabel, x + 6, y); y += 4;
       const codeLines = String(iss.fixCode).split('\n').slice(0, 8);
       const codeBoxH = codeLines.length * 4.2 + 4;
@@ -2537,7 +2537,7 @@ addEventListener('click', e => {
       doc.line(sideW, 30, sideW, H);
 
       y = 40;
-      y = drawMetrics(doc, P, T, result, 8, y, sideW - 16, 24, true);
+      y = drawMetrics(doc, P, T, result, 8, y, sideW - 16, 24, true, baseFont);
 
       // Sidebar footer note — wrapped narrower than the sidebar itself so
       // text never touches the right-edge divider line, and anchored from
@@ -2566,7 +2566,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitleCyber, cx, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, cx, y, cw, H, 40, presetKey); }
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, cx, y, cw, H, 40, presetKey, baseFont); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, cx, y);
@@ -2587,7 +2587,7 @@ addEventListener('click', e => {
       y = 42;
       const metricsW = W - M2*2;
       y = drawModeBanner(doc, P, T, result, M2, y, metricsW, baseFont);
-      y = drawMetrics(doc, P, T, result, M2, y, metricsW, 22, false);
+      y = drawMetrics(doc, P, T, result, M2, y, metricsW, 22, false, baseFont);
       y += 12;
 
       doc.setDrawColor(...P.border); doc.line(M2, y, W-M2, y); y += 8;
@@ -2603,7 +2603,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitle, W/2, y, { align: 'center' }); y += 8;
 
       if (result.issues && result.issues.length) {
-        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M2, y, metricsW, H, M2, presetKey); }
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M2, y, metricsW, H, M2, presetKey, baseFont); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, W/2, y, { align: 'center' });
@@ -2664,7 +2664,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitle, SM, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, SM, y, W - SM*2, H, SM, presetKey); }
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, SM, y, W - SM*2, H, SM, presetKey, baseFont); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, SM, y);
@@ -2688,7 +2688,7 @@ addEventListener('click', e => {
       y += srcLines.length * 4.2 + 6;
 
       y = drawModeBanner(doc, P, T, result, M, y, W - M*2, baseFont);
-      y = drawMetrics(doc, P, T, result, M, y, W - M*2, 22, false);
+      y = drawMetrics(doc, P, T, result, M, y, W - M*2, 22, false, baseFont);
       y += 12;
 
       doc.setDrawColor(...P.border); doc.line(M, y, W-M, y); y += 7;
@@ -2703,7 +2703,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitle, M, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M, presetKey); }
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M, presetKey, baseFont); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, M, y);
