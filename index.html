@@ -1766,11 +1766,19 @@ addEventListener('click', e => {
   // Call the Cloudflare Worker, which calls Groq's LLM and returns clean JSON
   async function callBackend(code) {
     const lang = (window.currentLang === 'en') ? 'en' : 'ru';
-    const r = await fetch(AUDIT_PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, mode: activeMode, lang }),
-    });
+    let r;
+    try {
+      r = await fetch(AUDIT_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, mode: activeMode, lang }),
+      });
+    } catch (networkErr) {
+      // fetch() itself threw — this is a network-level failure (DNS, CORS,
+      // mixed-content, offline, or the Worker URL being unreachable), not
+      // an HTTP error response. Surface that distinction clearly.
+      throw new Error(`Network error reaching AI proxy (${networkErr.message}). Check AUDIT_PROXY_URL is correct and the Worker is deployed.`);
+    }
     if (!r.ok) {
       let detail = '';
       try { detail = (await r.json()).error || ''; } catch {}
@@ -2112,15 +2120,15 @@ addEventListener('click', e => {
       bg: [243,232,201], panel: [233,217,176], border: [110,80,40],
       headerBg: [60,40,20], headerText: [233,217,176],
       accent: [120,30,30], text: [15,10,5], dim: [80,60,35],
-      ok: [40,70,25], warn: [140,80,15], err: [110,20,20],
+      ok: [40,70,25], warn: [150,25,25], err: [110,20,20],
       cornerStyle: 'ornate',
       layout: 'centered',     // metrics centered under a banner, wide margins
     },
     samurai: {
-      bg: [20,18,16], panel: [32,28,24], border: [180,30,40],
-      headerBg: [18,16,14], headerText: [220,200,180],
-      accent: [200,30,40], text: [225,215,200], dim: [140,125,110],
-      ok: [150,180,90], warn: [220,160,60], err: [220,40,50],
+      bg: [235,225,205], panel: [220,205,180], border: [120,25,30],
+      headerBg: [30,25,20], headerText: [225,210,185],
+      accent: [160,20,30], text: [20,15,10], dim: [90,70,50],
+      ok: [50,90,40], warn: [150,30,30], err: [140,15,20],
       cornerStyle: 'brush',
       layout: 'scroll',       // vertical scroll feel: score badge top-right, metrics stacked
     },
@@ -2352,6 +2360,14 @@ addEventListener('click', e => {
   // Cache loaded images (as data URLs) so we only fetch each file once
   // per page session, even across multiple PDF generations.
   const bgImageCache = {};
+  // One cache-busting token per page load — forces the browser to bypass
+  // its own HTTP cache and re-request the image from the server every
+  // time the page is freshly loaded, so a newly-uploaded background image
+  // shows up without the user needing to hard-refresh / clear cache.
+  // (Note: this does NOT bypass GitHub Pages' own CDN cache, which can
+  // still take a few minutes to propagate after a push — if the image
+  // still looks old after a hard refresh, wait a bit and try again.)
+  const BG_CACHE_BUST = Date.now();
 
   function loadImageAsDataURL(path) {
     if (bgImageCache[path] !== undefined) return Promise.resolve(bgImageCache[path]);
@@ -2374,7 +2390,7 @@ addEventListener('click', e => {
         }
       };
       img.onerror = () => { bgImageCache[path] = null; resolve(null); };
-      img.src = path;
+      img.src = `${path}?v=${BG_CACHE_BUST}`;
     });
   }
 
@@ -2383,14 +2399,14 @@ addEventListener('click', e => {
   // (avoids a visible delay on first export).
   Object.values(THEME_BG_FILES).forEach(path => { loadImageAsDataURL(path); });
 
-  // Per-style overlay darkness — medieval gets NO overlay (parchment stays
-  // bright as-is, dark ink-colored text handles contrast instead).
-  // Cyberpunk/samurai keep a light overlay since their source images tend
-  // to be busier/brighter in spots and need it for text legibility.
+  // Per-style overlay darkness — medieval and samurai get NO overlay
+  // (background image stays bright as-is, dark high-contrast text colors
+  // handle legibility instead). Cyberpunk keeps a light overlay since its
+  // image tends to be busy/bright in spots and benefits from it.
   const THEME_OVERLAY_OPACITY = {
     medieval:  0,
     cyberpunk: 0.30,
-    samurai:   0.30,
+    samurai:   0,
   };
 
   async function drawThemeBackgroundImage(doc, presetKey, W, H) {
@@ -2531,16 +2547,14 @@ addEventListener('click', e => {
 
     } else if (P.layout === 'scroll') {
       /* ── SAMURAI: score badge top-right, metrics stacked left edge,
-                     content flows like a vertical scroll ── */
-      doc.setFillColor(...P.headerBg);
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.55 })); } catch(_) {}
-      doc.rect(0, 0, W, 32, 'F');
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
+                     content flows like a vertical scroll. No solid
+                     header block — title sits directly on the bright
+                     background image, in dark ink-like text. ── */
       doc.setDrawColor(...P.border); doc.setLineWidth(1.5);
       doc.line(0, 32, W, 32);
-      doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(18);
+      doc.setTextColor(20, 15, 10); doc.setFont(baseFont, 'bold'); doc.setFontSize(18);
       doc.text(T.titles.samurai, M, 16);
-      doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(...P.headerText);
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(40, 30, 22);
       doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}`, M, 24);
       doc.text(`${T.mode}: ${(result.mode||'auto').toUpperCase()}  ·  ${T.engine}: ${result.usedAI ? T.engineAI : T.engineLocal}`, M, 29);
 
