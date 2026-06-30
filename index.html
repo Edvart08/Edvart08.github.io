@@ -1527,7 +1527,9 @@ addEventListener('click', e => {
 
 /* ════════════════ AI Code Auditor ════════════════ */
 (function(){
-  const FASTAPI_URL = 'http://localhost:8000/analyze';  // swap for prod URL
+  // Cloudflare Worker proxy URL — replace after deploying cf-worker/worker.js
+  // (see cf-worker/worker.js header comment for deploy steps)
+  const AUDIT_PROXY_URL = 'https://oguzok-auditor.davlatburnacev.workers.dev/';
 
   const input   = document.getElementById('auditInput');
   const runBtn  = document.getElementById('auditRunBtn');
@@ -1628,13 +1630,18 @@ addEventListener('click', e => {
   }
 
   // Call FastAPI backend
+  // Call the Cloudflare Worker, which calls Groq's LLM and returns clean JSON
   async function callBackend(code) {
-    const r = await fetch(FASTAPI_URL, {
+    const r = await fetch(AUDIT_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ repo_url: code, mode: activeMode }),
+      body: JSON.stringify({ code, mode: activeMode }),
     });
-    if (!r.ok) throw new Error(`Backend returned ${r.status}`);
+    if (!r.ok) {
+      let detail = '';
+      try { detail = (await r.json()).error || ''; } catch {}
+      throw new Error(`Proxy returned ${r.status}${detail ? ': ' + detail : ''}`);
+    }
     return await r.json();
   }
 
@@ -1688,7 +1695,7 @@ addEventListener('click', e => {
     statusTxt.textContent = 'SCANNING...';
     clearLog();
 
-    logLine('<span class="a-cyan">> AUDIT ENGINE v2.1 — initializing</span>', 0);
+    logLine('<span class="a-cyan">> AUDIT ENGINE v2.2 — initializing</span>', 0);
     logLine(`<span class="a-dim">> mode: ${activeMode.toUpperCase()}</span>`, 300);
 
     try {
@@ -1706,14 +1713,15 @@ addEventListener('click', e => {
         }
       }
 
-      logLine('<span class="a-dim">> Sending to analysis engine...</span>', 400);
+      logLine('<span class="a-dim">> Sending to Groq LLaMA-3.3-70B...</span>', 400);
 
-      let result;
+      let result, usedAI = false;
       try {
         result = await callBackend(code);
-        logLine('<span class="a-grn">> ✓ Backend responded</span>', 200);
+        usedAI = true;
+        logLine('<span class="a-grn">> ✓ AI analysis received</span>', 200);
       } catch (e) {
-        logLine('<span class="a-warn">> Backend offline — running local analysis</span>', 200);
+        logLine(`<span class="a-warn">> AI engine unavailable (${e.message}) — running local static analysis</span>`, 200);
         result = localAnalyze(code);
       }
 
@@ -1723,9 +1731,10 @@ addEventListener('click', e => {
       logLine(`<span class="a-warn">> Issues found: ${result.issues_found ?? 0}</span>`, 300);
 
       if (result.issues && result.issues.length > 0) {
-        result.issues.slice(0,5).forEach((iss, i) => {
+        result.issues.slice(0,6).forEach((iss, i) => {
           const c = iss.type === 'err' ? 'a-err' : 'a-warn';
-          logLine(`<span class="${c}">  [L${iss.line}] ${iss.label}</span>`, 150 * (i+1));
+          const lineTag = iss.line ? `[L${iss.line}] ` : '';
+          logLine(`<span class="${c}">  ${lineTag}${iss.label}</span>`, 150 * (i+1));
         });
       }
 
@@ -1733,6 +1742,7 @@ addEventListener('click', e => {
       const scoreCol = scoreNum >= 80 ? 'a-grn' : scoreNum >= 50 ? 'a-cyan' : 'a-err';
       logLine(`<span class="${scoreCol}">> Score: ${scoreNum}/100</span>`, 400);
       logLine(`<span class="a-dim">> ${result.summary}</span>`, 300);
+      logLine(`<span class="a-dim">> engine: ${usedAI ? 'Groq LLaMA-3.3-70B' : 'local static rules (AI offline)'}</span>`, 200);
       logLine('<span class="a-grn">> ─────────────────────────────</span>', 200);
       logLine('<span class="a-grn">> AUDIT COMPLETE ✓</span>', 100);
 
