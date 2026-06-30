@@ -291,6 +291,18 @@
     .auditor-tip-icon { color:var(--cyan);font-size:0.75rem;opacity:0.6;flex-shrink:0;margin-top:1px; }
     .auditor-tip-text { font-family:'Share Tech Mono',monospace;font-size:0.72rem;line-height:1.65;color:rgba(180,200,220,0.65); }
 
+    /* ── PDF Export panel — sits inside auditor-output-col (flex column) ── */
+    .auditor-pdf-export { margin-top:14px; padding-top:16px; border-top:1px solid rgba(0,245,255,0.08); display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+    .auditor-pdf-label { font-family:'Share Tech Mono',monospace; font-size:0.58rem; letter-spacing:3px; color:rgba(0,245,255,0.40); white-space:nowrap; width:100%; }
+    .auditor-pdf-presets { display:flex; gap:7px; flex-wrap:wrap; flex:1; }
+    .pdf-preset { display:flex; align-items:center; gap:5px; padding:6px 11px; background:rgba(0,245,255,0.03); border:1px solid rgba(0,245,255,0.14); border-radius:6px; color:var(--dim); font-family:'Share Tech Mono',monospace; font-size:0.62rem; letter-spacing:1px; cursor:none; transition:all .2s; }
+    .pdf-preset-icon { font-size:0.80rem; }
+    .pdf-preset:hover { border-color:rgba(0,245,255,0.4); color:var(--cyan); }
+    .pdf-preset.active { background:rgba(0,245,255,0.10); border-color:rgba(0,245,255,0.55); color:var(--cyan); box-shadow:0 0 14px rgba(0,245,255,0.10); }
+    .auditor-pdf-btn { width:100%; padding:11px 20px; background:rgba(0,255,136,0.06); border:1px solid rgba(0,255,136,0.35); border-radius:8px; color:var(--green); font-family:'Orbitron',sans-serif; font-size:0.66rem; letter-spacing:2px; cursor:none; transition:all .25s; }
+    .auditor-pdf-btn:hover:not(:disabled) { background:rgba(0,255,136,0.12); border-color:rgba(0,255,136,0.65); box-shadow:0 0 22px rgba(0,255,136,0.18); }
+    .auditor-pdf-btn:disabled { opacity:0.35; pointer-events:none; }
+
     /* Logo pulse dot */
     .logo-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin-left: 8px; vertical-align: middle; box-shadow: 0 0 6px var(--green); animation: dotPulse 2s ease-in-out infinite; }
     @keyframes dotPulse { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:1;transform:scale(2)} }
@@ -638,6 +650,27 @@
               <span class="a-caret">█</span>
             </div>
           </div>
+          <!-- PDF Export -->
+          <div class="auditor-pdf-export" id="auditPdfExport">
+            <div class="auditor-pdf-label" data-i18n="audit-pdf-label">// EXPORT REPORT</div>
+            <div class="auditor-pdf-presets" id="pdfPresets">
+              <button class="pdf-preset active" data-preset="office" title="Office">
+                <span class="pdf-preset-icon">📄</span><span>Office</span>
+              </button>
+              <button class="pdf-preset" data-preset="cyberpunk" title="Cyberpunk">
+                <span class="pdf-preset-icon">⚡</span><span>Cyberpunk</span>
+              </button>
+              <button class="pdf-preset" data-preset="medieval" title="Medieval">
+                <span class="pdf-preset-icon">🛡</span><span>Medieval</span>
+              </button>
+              <button class="pdf-preset" data-preset="samurai" title="Samurai">
+                <span class="pdf-preset-icon">⛩</span><span>Samurai</span>
+              </button>
+            </div>
+            <button class="auditor-pdf-btn" id="pdfExportBtn" disabled>
+              <span data-i18n="audit-pdf-btn">⬇ DOWNLOAD PDF REPORT</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -742,6 +775,8 @@ const LANGS = {
     'audit-tip3':'Выбери режим: <span style="color:var(--cyan)">SECURITY</span> — поиск уязвимостей, <span style="color:var(--cyan)">PERFORMANCE</span> — узкие места',
     'audit-tip4':'Анализатор работает локально даже без подключения к серверу',
     'audit-tip5':'Поддерживает Python, JavaScript, TypeScript и другие языки',
+    'audit-pdf-label':'// ЭКСПОРТ ОТЧЁТА',
+    'audit-pdf-btn':'⬇ СКАЧАТЬ PDF ОТЧЁТ',
     roles:['Full-Stack разработчик','AI разработчик','Python инженер','Архитектор ботов'],
   },
   en: {
@@ -776,6 +811,8 @@ const LANGS = {
     'audit-tip3':'Select mode: <span style="color:var(--cyan)">SECURITY</span> — find vulnerabilities, <span style="color:var(--cyan)">PERFORMANCE</span> — bottlenecks',
     'audit-tip4':'Analyzer works locally even without server connection',
     'audit-tip5':'Supports Python, JavaScript, TypeScript and more',
+    'audit-pdf-label':'// EXPORT REPORT',
+    'audit-pdf-btn':'⬇ DOWNLOAD PDF REPORT',
     roles:['Full-Stack Developer','AI Developer','Python Engineer','Bot Architect'],
   }
 };
@@ -852,24 +889,44 @@ addEventListener('click', e => {
 class Node {
   constructor(fixed) {
     this.type = Math.random() > 0.85 ? 'hot' : 'normal';
-    this.anchor = false;
-    this.reset(fixed);
-    this.vx = (Math.random() - 0.5) * 0.12;
-    this.vy = (Math.random() - 0.5) * 0.12;
+    this.spawnReset(fixed);
     this.pulse = Math.random() * Math.PI * 2;
     this.driftAngle = Math.random() * Math.PI * 2;
     this.driftSpeed = 0.004 + Math.random() * 0.005;
     this.boostT = 0; // frames remaining of "click blast" speed boost
+    this.fadeT = 1;        // 0=invisible, 1=fully visible
+    this.state = 'alive';  // 'alive' | 'fadingOut' | 'fadingIn'
   }
-  reset(fixed) {
+  spawnReset(fixed) {
     this.x  = fixed ? Math.random() * innerWidth  : Math.random() * W;
     this.y  = fixed ? Math.random() * innerHeight : Math.random() * H;
     this.r  = this.type === 'hot' ? Math.random() * 2 + 1.5 : Math.random() * 1.2 + 0.4;
     this.baseA = this.type === 'hot' ? 0.8 : Math.random() * 0.4 + 0.15;
     this.c  = Math.random() > 0.55 ? '0,245,255' : Math.random() > 0.45 ? '191,95,255' : '0,255,136';
+    this.vx = (Math.random() - 0.5) * 0.12;
+    this.vy = (Math.random() - 0.5) * 0.12;
   }
   step(dt) {
     this.pulse += dt * 1.8;
+
+    // Handle fade states — no walls, no teleporting, just smooth opacity transitions
+    if (this.state === 'fadingOut') {
+      this.fadeT -= dt * 0.025;
+      if (this.fadeT <= 0) {
+        // Respawn fully inside the visible screen, then fade back in
+        this.spawnReset(false);
+        this.fadeT = 0;
+        this.state = 'fadingIn';
+      }
+      // Keep drifting even while fading so the disappearance looks natural
+      this.x += this.vx * dt; this.y += this.vy * dt;
+      return;
+    }
+    if (this.state === 'fadingIn') {
+      this.fadeT += dt * 0.025;
+      if (this.fadeT >= 1) { this.fadeT = 1; this.state = 'alive'; }
+    }
+
     // Slow chaotic drift — angle wanders randomly
     this.driftAngle += (Math.random() - 0.5) * 0.06;
     this.vx += Math.cos(this.driftAngle) * this.driftSpeed * dt;
@@ -890,22 +947,19 @@ class Node {
     this.vx *= this.boostT > 0 ? 0.95 : 0.992;
     this.vy *= this.boostT > 0 ? 0.95 : 0.992;
     this.x += this.vx * dt; this.y += this.vy * dt;
-    // Soft edge bounce only — no center bias whatsoever (any constant pull,
-    // however weak, accumulates over time into a visible ring/hole pattern)
-    const margin = 60;
-    if (this.x < margin)     this.vx += (margin - this.x) * 0.02;
-    if (this.x > W - margin) this.vx -= (this.x - (W - margin)) * 0.02;
-    if (this.y < margin)     this.vy += (margin - this.y) * 0.02;
-    if (this.y > H - margin) this.vy -= (this.y - (H - margin)) * 0.02;
-    if (this.x < -200 || this.x > W+200 || this.y < -200 || this.y > H+200) {
-      this.x = Math.random()*W;
-      this.y = Math.random()*H;
-      this.vx = (Math.random()-0.5)*0.12; this.vy = (Math.random()-0.5)*0.12;
+
+    // No walls of any kind. Once a particle drifts fully off-screen
+    // (with margin so it disappears off the visible edge, not mid-screen),
+    // start a graceful fade-out, then respawn it fresh inside the viewport.
+    const offMargin = 40;
+    if (this.x < -offMargin || this.x > W+offMargin || this.y < -offMargin || this.y > H+offMargin) {
+      this.state = 'fadingOut';
     }
   }
   draw() {
+    if (this.fadeT <= 0) return; // fully faded — skip drawing while off-screen
     const glow = 0.5 + 0.5 * Math.sin(this.pulse);
-    const a = this.baseA * (0.7 + 0.3 * glow);
+    const a = this.baseA * (0.7 + 0.3 * glow) * this.fadeT;
     const r = this.r * (1 + 0.3 * glow);
     ctx.beginPath();
     ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
@@ -914,7 +968,7 @@ class Node {
     if (this.type === 'hot') {
       ctx.beginPath();
       ctx.arc(this.x, this.y, r * 3, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${this.c},${0.06 * glow})`;
+      ctx.fillStyle = `rgba(${this.c},${0.06 * glow * this.fadeT})`;
       ctx.fill();
     }
   }
@@ -974,7 +1028,9 @@ let frameSkip = 0;
   ctx.strokeStyle = 'rgba(0,245,255,0.10)';
   ctx.lineWidth = 0.6;
   for (let i = 0; i < PS.length; i++) {
+    if (PS[i].fadeT <= 0) continue;
     for (let j = i + 1; j < PS.length; j++) {
+      if (PS[j].fadeT <= 0) continue;
       const dx = PS[i].x - PS[j].x, dy = PS[i].y - PS[j].y;
       const d2 = dx*dx + dy*dy;
       if (d2 < MAX_CONNECT_DIST * MAX_CONNECT_DIST) {
@@ -1529,7 +1585,7 @@ addEventListener('click', e => {
 (function(){
   // Cloudflare Worker proxy URL — replace after deploying cf-worker/worker.js
   // (see cf-worker/worker.js header comment for deploy steps)
-  const AUDIT_PROXY_URL = 'https://oguzok-auditor.davlatburnacev.workers.dev/';
+  const AUDIT_PROXY_URL = 'https://oguzok-auditor.YOUR-SUBDOMAIN.workers.dev';
 
   const input   = document.getElementById('auditInput');
   const runBtn  = document.getElementById('auditRunBtn');
@@ -1692,6 +1748,8 @@ addEventListener('click', e => {
 
     runBtn.classList.add('loading'); runBtn.disabled = true;
     metrics.classList.remove('visible');
+    const pdfBtnReset = document.getElementById('pdfExportBtn');
+    if (pdfBtnReset) pdfBtnReset.disabled = true;
     statusTxt.textContent = 'SCANNING...';
     clearLog();
 
@@ -1749,6 +1807,11 @@ addEventListener('click', e => {
       setMetrics(result.complexity, result.issues_found ?? 0, scoreNum);
       statusTxt.textContent = LANGS[window.currentLang||'ru']['audit-status'] || 'ENGINE READY';
 
+      // Save the result for PDF export and unlock the export button
+      window.__lastAuditResult = { ...result, score: scoreNum, mode: activeMode, usedAI, source: raw };
+      const pdfBtn = document.getElementById('pdfExportBtn');
+      if (pdfBtn) pdfBtn.disabled = false;
+
     } catch (err) {
       logLine(`<span class="a-err">> ERROR: ${err.message}</span>`, 300);
       statusTxt.textContent = 'ERROR';
@@ -1759,6 +1822,231 @@ addEventListener('click', e => {
 
   // Also trigger on Enter in input
   input.addEventListener('keydown', e => { if (e.key === 'Enter') runBtn.click(); });
+})();
+
+/* ════════════════ PDF Report Generator ════════════════ */
+(function(){
+  const presetBtns = document.querySelectorAll('.pdf-preset');
+  const pdfBtn = document.getElementById('pdfExportBtn');
+  if (!pdfBtn) return;
+
+  let activePreset = 'office';
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      presetBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activePreset = btn.dataset.preset;
+    });
+  });
+
+  /* ── Style preset configuration ──────────────────────────────
+     Each preset defines colors, fonts and decorative elements used
+     when laying out the PDF. jsPDF's built-in fonts are Helvetica,
+     Times, and Courier — we map each preset to whichever reads
+     closest to the intended mood. */
+  const PRESETS = {
+    office: {
+      name: 'Office Report',
+      bg: [255,255,255], panel: [245,247,250], border: [200,206,214],
+      headerBg: [30,46,74], headerText: [255,255,255],
+      accent: [40,90,180], text: [30,34,40], dim: [110,118,130],
+      ok: [30,140,80], warn: [185,120,15], err: [180,40,40],
+      font: 'times', titleFont: 'helvetica',
+      cornerStyle: 'square',
+    },
+    cyberpunk: {
+      name: 'Cyberpunk',
+      bg: [6,8,16], panel: [12,16,28], border: [0,220,255],
+      headerBg: [10,12,24], headerText: [0,240,255],
+      accent: [0,240,255], text: [210,240,255], dim: [110,140,170],
+      ok: [0,255,140], warn: [255,190,0], err: [255,40,120],
+      font: 'courier', titleFont: 'courier',
+      cornerStyle: 'notch',
+    },
+    medieval: {
+      name: 'Medieval Decree',
+      bg: [243,232,201], panel: [233,217,176], border: [110,80,40],
+      headerBg: [60,40,20], headerText: [233,217,176],
+      accent: [120,30,30], text: [50,35,15], dim: [110,90,60],
+      ok: [60,90,40], warn: [150,90,20], err: [120,25,25],
+      font: 'times', titleFont: 'times',
+      cornerStyle: 'ornate',
+    },
+    samurai: {
+      name: 'Samurai Scroll',
+      bg: [20,18,16], panel: [32,28,24], border: [180,30,40],
+      headerBg: [18,16,14], headerText: [220,200,180],
+      accent: [200,30,40], text: [225,215,200], dim: [140,125,110],
+      ok: [150,180,90], warn: [220,160,60], err: [220,40,50],
+      font: 'helvetica', titleFont: 'helvetica',
+      cornerStyle: 'brush',
+    },
+  };
+
+  function drawCorner(doc, x, y, size, style, color) {
+    doc.setDrawColor(...color);
+    doc.setLineWidth(0.6);
+    if (style === 'notch') {
+      doc.line(x, y, x+size, y); doc.line(x, y, x, y+size);
+    } else if (style === 'ornate') {
+      doc.circle(x, y, 1.4, 'S');
+      doc.line(x, y, x+size*0.6, y); doc.line(x, y, x, y+size*0.6);
+    } else if (style === 'brush') {
+      doc.setLineWidth(1.2);
+      doc.line(x, y+2, x+size*0.7, y); doc.line(x+2, y, x, y+size*0.7);
+    } else {
+      doc.setLineWidth(0.4);
+      doc.rect(x, y, 3, 3);
+    }
+  }
+
+  function wrapText(doc, text, maxWidth) {
+    return doc.splitTextToSize(text, maxWidth);
+  }
+
+  function generatePDF(result, presetKey) {
+    const P = PRESETS[presetKey] || PRESETS.office;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = 210, H = 297, M = 16;
+    let y = 0;
+
+    // Page background
+    doc.setFillColor(...P.bg);
+    doc.rect(0, 0, W, H, 'F');
+
+    // Header bar
+    const headH = 34;
+    doc.setFillColor(...P.headerBg);
+    doc.rect(0, 0, W, headH, 'F');
+    if (presetKey === 'cyberpunk') {
+      doc.setDrawColor(...P.accent); doc.setLineWidth(0.4);
+      doc.line(0, headH, W, headH);
+      doc.line(0, headH-1.2, W, headH-1.2);
+    }
+    if (presetKey === 'samurai') {
+      doc.setDrawColor(...P.border); doc.setLineWidth(1.5);
+      doc.line(0, headH, W, headH);
+    }
+    if (presetKey === 'medieval') {
+      doc.setDrawColor(...P.border); doc.setLineWidth(1);
+      doc.line(M*0.5, headH+2, W-M*0.5, headH+2);
+    }
+
+    doc.setTextColor(...P.headerText);
+    doc.setFont(P.titleFont, 'bold');
+    doc.setFontSize(20);
+    const titleMap = {
+      office: 'CODE AUDIT REPORT',
+      cyberpunk: '> CODE_AUDIT.EXE',
+      medieval: 'DECREE OF CODE INSPECTION',
+      samurai: '武 CODE AUDIT 武',
+    };
+    doc.text(titleMap[presetKey] || 'CODE AUDIT REPORT', M, 16);
+    doc.setFont(P.font, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...P.headerText);
+    const dateStr = new Date().toLocaleString(window.currentLang === 'en' ? 'en-US' : 'ru-RU');
+    doc.text(`${dateStr}  ·  OGUZOK AI AUDITOR`, M, 24);
+    doc.text(`Mode: ${(result.mode||'auto').toUpperCase()}  ·  Engine: ${result.usedAI ? 'Groq LLaMA-3.3-70B' : 'Local Static Rules'}`, M, 30);
+
+    y = headH + 14;
+
+    // Source line
+    doc.setFont(P.font, 'normal'); doc.setFontSize(8.5); doc.setTextColor(...P.dim);
+    const srcLines = wrapText(doc, `Source: ${result.source || 'pasted code'}`, W - M*2);
+    doc.text(srcLines, M, y);
+    y += srcLines.length * 4.2 + 6;
+
+    // Metrics row (3 boxes)
+    const boxW = (W - M*2 - 12) / 3;
+    const boxH = 22;
+    const metricData = [
+      { label: 'COMPLEXITY', value: result.complexity || '—', color: result.complexity === 'High' ? P.warn : result.complexity === 'Low' ? P.ok : P.accent },
+      { label: 'ISSUES FOUND', value: String(result.issues_found ?? 0), color: (result.issues_found||0) > 5 ? P.warn : P.ok },
+      { label: 'SCORE / 100', value: String(result.score ?? 0), color: (result.score||0) >= 80 ? P.ok : (result.score||0) >= 50 ? P.accent : P.err },
+    ];
+    metricData.forEach((m, i) => {
+      const bx = M + i * (boxW + 6);
+      doc.setFillColor(...P.panel);
+      doc.setDrawColor(...P.border);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(bx, y, boxW, boxH, presetKey==='cyberpunk'?0:1.5, presetKey==='cyberpunk'?0:1.5, 'FD');
+      drawCorner(doc, bx, y, 4, P.cornerStyle, P.accent);
+      doc.setFont(P.titleFont, 'bold'); doc.setFontSize(15);
+      doc.setTextColor(...m.color);
+      doc.text(m.value, bx + boxW/2, y + 13, { align: 'center' });
+      doc.setFont(P.font, 'normal'); doc.setFontSize(6.5);
+      doc.setTextColor(...P.dim);
+      doc.text(m.label, bx + boxW/2, y + 19, { align: 'center' });
+    });
+    y += boxH + 12;
+
+    // Summary
+    doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
+    doc.line(M, y, W-M, y); y += 7;
+    doc.setFont(P.titleFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
+    doc.text(presetKey==='cyberpunk' ? '// SUMMARY' : 'Summary', M, y); y += 6;
+    doc.setFont(P.font, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
+    const sumLines = wrapText(doc, result.summary || 'No summary available.', W - M*2);
+    doc.text(sumLines, M, y);
+    y += sumLines.length * 4.6 + 8;
+
+    // Issues list
+    if (result.issues && result.issues.length) {
+      doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
+      doc.line(M, y, W-M, y); y += 7;
+      doc.setFont(P.titleFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
+      doc.text(presetKey==='cyberpunk' ? '// ISSUES DETECTED' : 'Issues Detected', M, y); y += 7;
+
+      result.issues.forEach((iss, i) => {
+        if (y > H - 30) { doc.addPage(); doc.setFillColor(...P.bg); doc.rect(0,0,W,H,'F'); y = M; }
+        const col = iss.type === 'err' ? P.err : P.warn;
+        doc.setFillColor(...col);
+        doc.circle(M + 1.5, y - 1.3, 1.3, 'F');
+        doc.setFont(P.font, 'bold'); doc.setFontSize(8.5); doc.setTextColor(...col);
+        const lineTag = iss.line ? `[L${iss.line}] ` : '';
+        doc.text(`${lineTag}${iss.type === 'err' ? 'CRITICAL' : 'WARNING'}`, M + 5, y);
+        y += 4.6;
+        doc.setFont(P.font, 'normal'); doc.setFontSize(8.5); doc.setTextColor(...P.text);
+        const labelLines = wrapText(doc, iss.label, W - M*2 - 5);
+        doc.text(labelLines, M + 5, y);
+        y += labelLines.length * 4.2 + 4;
+      });
+    }
+
+    // Footer
+    const footY = H - 12;
+    doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
+    doc.line(M, footY - 5, W - M, footY - 5);
+    doc.setFont(P.font, 'normal'); doc.setFontSize(7.5); doc.setTextColor(...P.dim);
+    const footerMap = {
+      office: 'Generated by Oguzok AI Code Auditor — Confidential Report',
+      cyberpunk: '[ GENERATED_BY: OGUZOK.AI_AUDITOR v2.2 // END_OF_TRANSMISSION ]',
+      medieval: 'Sealed and certified by the Oguzok Code Inspectorate',
+      samurai: '此書はOguzok AIにより生成された — Generated by Oguzok AI',
+    };
+    doc.text(footerMap[presetKey] || footerMap.office, W/2, footY, { align: 'center' });
+
+    return doc;
+  }
+
+  pdfBtn.addEventListener('click', () => {
+    const result = window.__lastAuditResult;
+    if (!result) return;
+    if (!window.jspdf) {
+      alert('PDF library failed to load — check your connection and try again.');
+      return;
+    }
+    try {
+      const doc = generatePDF(result, activePreset);
+      const fname = `code-audit-${activePreset}-${Date.now()}.pdf`;
+      doc.save(fname);
+    } catch (e) {
+      console.error('PDF generation failed:', e);
+      alert('Could not generate PDF: ' + e.message);
+    }
+  });
 })();
 
 /* ════════════════ Hero Visual — AI Neural Core ════════════════ */
@@ -2055,6 +2343,7 @@ addEventListener('mousemove',e=>{
 
 <!-- ══ Crystal Scanner — external module ══ -->
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script type="module">
 /**
  * crystal-scanner.js — Gem Glass v6
