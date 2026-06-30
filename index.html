@@ -103,36 +103,16 @@
       text-shadow: 4px 0 var(--pink), 0 0 20px var(--pink);
       clip-path: polygon(0 62%, 100% 62%, 100% 100%, 0 100%);
     }
-    @keyframes glA {
-      0%,55%,100% { transform:translate(0); opacity:0; }
-      57%  { transform:translate(-8px, 2px) skewX(-3deg); opacity:1; clip-path:polygon(0 5%,100% 0,100% 42%,0 38%); }
-      60%  { transform:translate(6px,-3px) skewX(2deg); opacity:.9; }
-      63%  { transform:translate(-12px,1px) skewX(-5deg); opacity:1; }
-      67%  { transform:translate(4px, 2px); opacity:.8; }
-      70%  { transform:translate(-6px,-1px) skewX(3deg); opacity:1; }
-      73%  { transform:translate(0); opacity:0; }
-    }
-    @keyframes glB {
-      0%,55%,100% { transform:translate(0); opacity:0; }
-      57%  { transform:translate(10px,-2px) skewX(4deg); opacity:1; clip-path:polygon(0 60%,100% 64%,100% 100%,0 100%); }
-      60%  { transform:translate(-8px, 3px) skewX(-3deg); opacity:.9; }
-      63%  { transform:translate(14px,-1px) skewX(6deg); opacity:1; }
-      67%  { transform:translate(-5px, 2px); opacity:.85; }
-      70%  { transform:translate(8px,-2px) skewX(-4deg); opacity:1; }
-      73%  { transform:translate(0); opacity:0; }
-    }
-    @keyframes glRGB {
-      0%,55%,100% { filter:none; }
-      57%  { filter: drop-shadow(-6px 0 rgba(0,245,255,0.8)) drop-shadow(6px 0 rgba(255,45,120,0.8)); }
-      61%  { filter: drop-shadow(10px 0 rgba(0,245,255,0.6)) drop-shadow(-10px 0 rgba(255,45,120,0.6)); }
-      65%  { filter: drop-shadow(-12px 0 rgba(0,245,255,1.0)) drop-shadow(12px 0 rgba(255,45,120,1.0)) drop-shadow(0 0 30px rgba(0,245,255,0.5)); }
-      69%  { filter: drop-shadow(6px 0 rgba(0,245,255,0.5)) drop-shadow(-6px 0 rgba(255,45,120,0.5)); }
-      73%  { filter: none; }
-    }
-    .glitch::before { animation: glA 3.5s infinite 3s; }
-    .glitch::after  { animation: glB 3.5s infinite 3.1s; }
+    /* ── Glitch: CSS layers stay hidden, JS drives everything ── */
+    .glitch::before, .glitch::after { display: none; }
     .hero-name { font-family: 'Orbitron', sans-serif; font-size: clamp(3.5rem,9vw,8rem); font-weight: 900; line-height: .95; color: #fff; margin-bottom: 16px; opacity: 0; animation: fadeUp .7s ease 2.2s forwards; }
-    .hero-name.visible { opacity: 1; animation: glRGB 3.5s infinite 0s; }
+    .hero-name.visible { opacity: 1; animation: none; }
+    /* Canvas glitch overlay sits on top of the h1 */
+    #glitchCanvas {
+      position: absolute; top: 0; left: 0;
+      pointer-events: none; z-index: 3;
+      opacity: 0;
+    }
     .hero-role { font-family: 'Orbitron', sans-serif; font-size: clamp(1rem,2.5vw,1.6rem); color: var(--cyan); text-shadow: 0 0 25px var(--cyan); margin-bottom: 28px; height: 2.2rem; display: flex; align-items: center; gap: 4px; opacity: 0; animation: fadeUp .7s ease 2.4s forwards; }
     .type-cursor { width: 2px; height: 1.3em; background: var(--cyan); animation: blink .7s step-end infinite; flex-shrink: 0; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
@@ -298,9 +278,12 @@
 
     /* ── Hero visual globe ── */
     .hero-visual {
-      position: absolute; right: 6%; top: 50%; transform: translateY(-50%);
-      width: clamp(280px, 36vw, 520px); aspect-ratio: 1;
+      position: absolute; right: 2%; top: 50%; transform: translateY(-50%);
+      width: clamp(320px, 42vw, 600px); aspect-ratio: 1;
       pointer-events: auto; z-index: 2; cursor: crosshair;
+      /* radial mask so glow fades naturally at edges — no hard square cutoff */
+      -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 55%, transparent 100%);
+      mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 55%, transparent 100%);
     }
     #heroGlobe { width: 100%; height: 100%; display: block; }
     @media(max-width:900px){ .hero-visual { display: none; } }
@@ -384,7 +367,8 @@
   <!-- ══ HERO ══ -->
   <section id="hero">
     <p class="hero-tag" data-i18n="hero-tag">&gt; СИСТЕМА ОНЛАЙН_</p>
-    <h1 class="hero-name glitch" data-text="OGUZOK">OGUZOK</h1>
+    <h1 class="hero-name glitch" data-text="OGUZOK" id="heroName">OGUZOK</h1>
+    <canvas id="glitchCanvas"></canvas>
     <div class="hero-role"><span id="typingText"></span><span class="type-cursor"></span></div>
     <p class="hero-bio" data-i18n="hero-bio">Full-Stack и AI-разработчик из Владикавказа. Строю высокопроизводительные веб-сервисы и автоматизированные ИИ-системы, которые решают реальные задачи.</p>
     <div class="hero-btns">
@@ -992,15 +976,135 @@ function type(){
 }
 function restartTyping(){clearTimeout(typT);ri=0;ci=0;del=false;typEl.textContent='';typT=setTimeout(type,200);}
 setTimeout(restartTyping,2900);
-// Lock opacity:1 after fadeUp, then enable glitch filter
+// Lock opacity after fadeUp, then fire JS glitch engine
 setTimeout(() => {
-  const el = document.querySelector('.hero-name.glitch');
+  const el = document.getElementById('heroName');
   if (!el) return;
-  el.style.opacity = '1';           // lock — never goes back to 0
-  el.style.animation = 'none';      // kill fadeUp (already done)
-  // tiny reflow, then start glRGB
-  requestAnimationFrame(() => el.classList.add('visible'));
+  el.style.opacity = '1';
+  el.style.animation = 'none';
+  requestAnimationFrame(() => { el.classList.add('visible'); startGlitchEngine(el); });
 }, 3100);
+
+/* ════════════════ JS Canvas Glitch Engine ════════════════ */
+function startGlitchEngine(el) {
+  const gc = document.getElementById('glitchCanvas');
+  if (!gc) return;
+  const gctx = gc.getContext('2d');
+
+  function syncSize() {
+    const r  = el.getBoundingClientRect();
+    const pr = el.parentElement.getBoundingClientRect();
+    gc.width  = r.width + 100;
+    gc.height = r.height + 60;
+    gc.style.left   = (r.left - pr.left - 50) + 'px';
+    gc.style.top    = (r.top  - pr.top  - 30) + 'px';
+    gc.style.width  = gc.width  + 'px';
+    gc.style.height = gc.height + 'px';
+  }
+  syncSize();
+  window.addEventListener('resize', syncSize);
+
+  function scheduleNext() {
+    setTimeout(fireGlitch, 1200 + Math.random() * 2200);
+  }
+
+  function fireGlitch() {
+    const duration = 160 + Math.random() * 280;
+    const t0 = performance.now();
+
+    function frame(now) {
+      const elapsed = now - t0;
+      if (elapsed > duration) {
+        gctx.clearRect(0, 0, gc.width, gc.height);
+        gc.style.opacity = '0';
+        scheduleNext();
+        return;
+      }
+
+      gctx.clearRect(0, 0, gc.width, gc.height);
+      gc.style.opacity = '1';
+
+      const W = gc.width, H = gc.height;
+      const cx = W / 2, cy = H / 2;
+      const intensity = Math.sin((elapsed / duration) * Math.PI);
+
+      const elStyle = getComputedStyle(el);
+      const fontSize = parseFloat(elStyle.fontSize);
+      gctx.font = elStyle.font || ('900 ' + fontSize + 'px Orbitron, sans-serif');
+      gctx.textAlign = 'center';
+      gctx.textBaseline = 'middle';
+
+      const text = 'OGUZOK';
+
+      // Cyan channel
+      const cShift = (-5 - intensity * 16) * (Math.random() > 0.25 ? 1 : 0);
+      gctx.fillStyle = 'rgba(0,245,255,' + (0.65 + intensity * 0.35) + ')';
+      gctx.fillText(text, cx + cShift, cy);
+
+      // Pink channel
+      const pShift = (5 + intensity * 16) * (Math.random() > 0.25 ? 1 : 0);
+      gctx.fillStyle = 'rgba(255,45,120,' + (0.65 + intensity * 0.35) + ')';
+      gctx.fillText(text, cx + pShift, cy);
+
+      // White base
+      const jx = (Math.random() - 0.5) * intensity * 8;
+      const jy = (Math.random() - 0.5) * intensity * 4;
+      gctx.fillStyle = 'rgba(255,255,255,' + (0.85 + intensity * 0.15) + ')';
+      gctx.fillText(text, cx + jx, cy + jy);
+
+      // Horizontal slices
+      const nSlices = Math.floor(1 + intensity * 6);
+      for (let s = 0; s < nSlices; s++) {
+        if (Math.random() > 0.55) {
+          const sy = Math.random() * H;
+          const sh = 3 + Math.random() * fontSize * 0.45;
+          const shift = (Math.random() - 0.5) * intensity * 35;
+          gctx.save();
+          gctx.beginPath(); gctx.rect(0, sy, W, sh); gctx.clip();
+          gctx.clearRect(0, sy, W, sh);
+          gctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,245,255,0.92)' : 'rgba(255,45,120,0.92)';
+          gctx.fillText(text, cx + shift + (Math.random()-0.5)*10, cy);
+          gctx.restore();
+        }
+      }
+
+      // Scanline
+      if (Math.random() > 0.35) {
+        const sy = (elapsed / duration) * H;
+        const g = gctx.createLinearGradient(0, sy-2, 0, sy+2);
+        g.addColorStop(0,   'rgba(0,245,255,0)');
+        g.addColorStop(0.5, 'rgba(0,245,255,' + (0.5*intensity) + ')');
+        g.addColorStop(1,   'rgba(0,245,255,0)');
+        gctx.fillStyle = g;
+        gctx.fillRect(0, sy-2, W, 4);
+      }
+
+      // Full block chaos
+      if (Math.random() > 0.86 && intensity > 0.25) {
+        gctx.save();
+        const by = H*0.15 + Math.random()*H*0.7;
+        const bh = fontSize * (0.4 + Math.random() * 0.6);
+        gctx.beginPath(); gctx.rect(0, by, W, bh); gctx.clip();
+        gctx.clearRect(0, by, W, bh);
+        const bs = (Math.random()-0.5) * 45;
+        gctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,245,255,0.95)' : 'rgba(255,45,120,0.95)';
+        gctx.fillText(text, cx + bs, cy);
+        gctx.restore();
+      }
+
+      // White flicker
+      if (Math.random() > 0.78 && intensity > 0.4) {
+        gctx.fillStyle = 'rgba(255,255,255,' + (intensity * 0.10) + ')';
+        gctx.fillRect(0, 0, W, H);
+      }
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  scheduleNext();
+}
 
 /* ════════════════ Text Scramble ════════════════ */
 class Scramble {
