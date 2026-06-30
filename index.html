@@ -2203,20 +2203,22 @@ addEventListener('click', e => {
 
   // Main font setup for a PDF document — synchronous now that fonts are
   // pre-embedded in fonts-cyrillic.js rather than fetched at export time.
+  // Returns { headFont, bodyFont }
+  // headFont — decorative preset font used for large headings (titles, section headers)
+  // bodyFont — readable font used for all body text (why, fix, summary, labels)
+  // This split ensures decorative fonts remain legible: they look great at 12-18pt
+  // but become unreadable at 8-9pt body text sizes.
   function setupDocumentFont(doc, presetKey) {
     const hasRoboto = registerRoboto(doc);
+    const bodyFont  = hasRoboto ? 'Roboto' : 'helvetica';
     const presetFontName = registerPresetFont(doc, presetKey);
 
-    if (presetFontName) {
-      doc.setFont(presetFontName, 'normal');
-      return presetFontName;
-    }
-    if (hasRoboto) {
-      doc.setFont(baseFont, 'normal');
-      return 'Roboto';
-    }
-    doc.setFont('helvetica', 'normal');
-    return 'helvetica';
+    // headFont is the decorative preset font for headings (if loaded successfully)
+    // bodyFont is always Roboto for readability at small sizes
+    const headFont = presetFontName || bodyFont;
+
+    doc.setFont(bodyFont, 'normal'); // start document in body font
+    return { headFont, bodyFont };
   }
 
   function wrapText(doc, text, maxWidth) {
@@ -2498,11 +2500,14 @@ addEventListener('click', e => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const W = 210, H = 297, M = 16;
 
-    const baseFont = setupDocumentFont(doc, presetKey);
+    const { headFont, bodyFont } = setupDocumentFont(doc, presetKey);
+    // baseFont is bodyFont — used for all body text throughout helper functions
+    // headFont is the decorative preset font — used only for large headings
+    const baseFont = bodyFont;
 
-    // If neither Roboto nor a custom font loaded, substitute 'helvetica'
-    // wherever the drawing helpers explicitly request 'Roboto' by name.
-    if (baseFont === 'helvetica') {
+    // If Roboto failed to load (no fonts-cyrillic.js), substitute 'helvetica'
+    // wherever helper functions request 'Roboto' by name.
+    if (bodyFont === 'helvetica') {
       const origSetFont = doc.setFont.bind(doc);
       doc.setFont = (name, style) => origSetFont(
         (name === 'Roboto' || name.startsWith('preset-')) ? 'helvetica' : name, style
@@ -2524,7 +2529,7 @@ addEventListener('click', e => {
       try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
       doc.setDrawColor(...P.accent); doc.setLineWidth(0.4);
       doc.line(0, 30, W, 30); doc.line(0, 28.8, W, 28.8);
-      doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(17);
+      doc.setTextColor(...P.headerText); doc.setFont(headFont, 'bold'); doc.setFontSize(17);
       doc.text(T.titles.cyberpunk, M, 14);
       doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(...P.headerText);
       doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}`, M, 21);
@@ -2555,14 +2560,14 @@ addEventListener('click', e => {
       const cx = sideW + 10, cw = W - sideW - 10 - M;
       y = 40;
       y = drawModeBanner(doc, P, T, result, cx, y, cw, baseFont);
-      doc.setFont(baseFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
+      doc.setFont(headFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
       doc.text(T.summaryTitleCyber, cx, y); y += 6;
       doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.text);
       const sumLines = wrapText(doc, result.summary || '', cw);
       doc.text(sumLines, cx, y); y += sumLines.length * 4.4 + 8;
 
       doc.setDrawColor(...P.border); doc.line(cx, y, cx+cw, y); y += 7;
-      doc.setFont(baseFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
+      doc.setFont(headFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
       doc.text(T.issuesTitleCyber, cx, y); y += 7;
 
       if (result.issues && result.issues.length) {
@@ -2579,7 +2584,7 @@ addEventListener('click', e => {
       const M2 = 24;
       doc.setDrawColor(...P.border); doc.setLineWidth(1);
       doc.line(M2*0.5, 32, W-M2*0.5, 32);
-      doc.setTextColor(40, 30, 15); doc.setFont(baseFont, 'bold'); doc.setFontSize(18);
+      doc.setTextColor(40, 30, 15); doc.setFont(headFont, 'bold'); doc.setFontSize(18);
       doc.text(T.titles.medieval, W/2, 16, { align: 'center' });
       doc.setFont(baseFont, 'normal'); doc.setFontSize(8.5); doc.setTextColor(60, 45, 25);
       doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}  ·  ${T.mode}: ${(result.mode||'auto').toUpperCase()}`, W/2, 24, { align: 'center' });
@@ -2591,7 +2596,7 @@ addEventListener('click', e => {
       y += 12;
 
       doc.setDrawColor(...P.border); doc.line(M2, y, W-M2, y); y += 8;
-      doc.setFont(baseFont, 'bold'); doc.setFontSize(12); doc.setTextColor(...P.accent);
+      doc.setFont(headFont, 'bold'); doc.setFontSize(12); doc.setTextColor(...P.accent);
       doc.text(T.summaryTitle, W/2, y, { align: 'center' }); y += 7;
       doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(40, 30, 15);
       const sumLines = wrapText(doc, result.summary || '', metricsW - 10);
@@ -2599,7 +2604,7 @@ addEventListener('click', e => {
       y += sumLines.length * 4.6 + 10;
 
       doc.setDrawColor(...P.border); doc.line(M2, y, W-M2, y); y += 8;
-      doc.setFont(baseFont, 'bold'); doc.setFontSize(12); doc.setTextColor(...P.accent);
+      doc.setFont(headFont, 'bold'); doc.setFontSize(12); doc.setTextColor(...P.accent);
       doc.text(T.issuesTitle, W/2, y, { align: 'center' }); y += 8;
 
       if (result.issues && result.issues.length) {
@@ -2619,7 +2624,7 @@ addEventListener('click', e => {
       const SM = M + 10; // samurai margin — wider than the base M
       doc.setDrawColor(...P.border); doc.setLineWidth(1.5);
       doc.line(0, 32, W, 32);
-      doc.setTextColor(20, 15, 10); doc.setFont(baseFont, 'bold'); doc.setFontSize(18);
+      doc.setTextColor(20, 15, 10); doc.setFont(headFont, 'bold'); doc.setFontSize(18);
       doc.text(T.titles.samurai, SM, 16);
       doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(40, 30, 22);
       doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}`, SM, 24);
@@ -2629,7 +2634,7 @@ addEventListener('click', e => {
       const scoreCol = (result.score||0) >= 80 ? P.ok : (result.score||0) >= 50 ? P.accent : P.err;
       doc.setFillColor(...P.panel); doc.setDrawColor(...scoreCol); doc.setLineWidth(0.6);
       doc.circle(W - SM - 8, 16, 13, 'FD');
-      doc.setFont(baseFont, 'bold'); doc.setFontSize(16); doc.setTextColor(...scoreCol);
+      doc.setFont(headFont, 'bold'); doc.setFontSize(16); doc.setTextColor(...scoreCol);
       doc.text(String(result.score ?? 0), W - SM - 8, 19, { align: 'center' });
 
       y = 42;
@@ -2645,7 +2650,7 @@ addEventListener('click', e => {
         doc.setFillColor(...P.panel); doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
         doc.rect(cx, y, chipW, chipH, 'FD');
         drawCorner(doc, cx, y, 3.5, P.cornerStyle, P.accent);
-        doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...c.color);
+        doc.setFont(headFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...c.color);
         doc.text(c.value, cx + 6, y + 9);
         doc.setFont(baseFont, 'normal'); doc.setFontSize(6); doc.setTextColor(...P.dim);
         doc.text(c.label, cx + chipW - 3, y + 9, { align: 'right', maxWidth: chipW - 9 });
@@ -2653,14 +2658,14 @@ addEventListener('click', e => {
       y += chipH + 10;
 
       doc.setDrawColor(...P.border); doc.line(SM, y, W-SM, y); y += 7;
-      doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
+      doc.setFont(headFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
       doc.text(T.summaryTitle, SM, y); y += 6;
       doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.text);
       const sumLines = wrapText(doc, result.summary || '', W - SM*2);
       doc.text(sumLines, SM, y); y += sumLines.length * 4.4 + 8;
 
       doc.setDrawColor(...P.border); doc.line(SM, y, W-SM, y); y += 7;
-      doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
+      doc.setFont(headFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
       doc.text(T.issuesTitle, SM, y); y += 7;
 
       if (result.issues && result.issues.length) {
@@ -2675,7 +2680,7 @@ addEventListener('click', e => {
       const headH = 34;
       doc.setFillColor(...P.headerBg);
       doc.rect(0, 0, W, headH, 'F');
-      doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(20);
+      doc.setTextColor(...P.headerText); doc.setFont(headFont, 'bold'); doc.setFontSize(20);
       doc.text(T.titles.office, M, 16);
       doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.headerText);
       doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}  ·  OGUZOK AI AUDITOR`, M, 24);
@@ -2692,14 +2697,14 @@ addEventListener('click', e => {
       y += 12;
 
       doc.setDrawColor(...P.border); doc.line(M, y, W-M, y); y += 7;
-      doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
+      doc.setFont(headFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
       doc.text(T.summaryTitle, M, y); y += 6;
       doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
       const sumLines = wrapText(doc, result.summary || '', W - M*2);
       doc.text(sumLines, M, y); y += sumLines.length * 4.6 + 8;
 
       doc.setDrawColor(...P.border); doc.line(M, y, W-M, y); y += 7;
-      doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
+      doc.setFont(headFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
       doc.text(T.issuesTitle, M, y); y += 7;
 
       if (result.issues && result.issues.length) {
