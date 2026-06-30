@@ -598,10 +598,10 @@
               autocomplete="off" spellcheck="false"/>
           </div>
           <div class="auditor-opts">
-            <button class="auditor-opt active" data-mode="auto">AUTO</button>
-            <button class="auditor-opt" data-mode="security">SECURITY</button>
-            <button class="auditor-opt" data-mode="perf">PERFORMANCE</button>
-            <button class="auditor-opt" data-mode="style">CODE STYLE</button>
+            <button class="auditor-opt active" data-mode="auto" data-i18n="mode-auto">AUTO</button>
+            <button class="auditor-opt" data-mode="security" data-i18n="mode-security">SECURITY</button>
+            <button class="auditor-opt" data-mode="perf" data-i18n="mode-perf">PERFORMANCE</button>
+            <button class="auditor-opt" data-mode="style" data-i18n="mode-style">CODE STYLE</button>
           </div>
           <button class="auditor-run-btn" id="auditRunBtn">
             <div class="btn-spinner"></div>
@@ -667,16 +667,16 @@
             <div class="auditor-pdf-label" data-i18n="audit-pdf-label">// EXPORT REPORT</div>
             <div class="auditor-pdf-presets" id="pdfPresets">
               <button class="pdf-preset active" data-preset="office" title="Office">
-                <span class="pdf-preset-icon">📄</span><span>Office</span>
+                <span class="pdf-preset-icon">📄</span><span data-i18n="preset-office">Office</span>
               </button>
               <button class="pdf-preset" data-preset="cyberpunk" title="Cyberpunk">
-                <span class="pdf-preset-icon">⚡</span><span>Cyberpunk</span>
+                <span class="pdf-preset-icon">⚡</span><span data-i18n="preset-cyberpunk">Cyberpunk</span>
               </button>
               <button class="pdf-preset" data-preset="medieval" title="Medieval">
-                <span class="pdf-preset-icon">🛡</span><span>Medieval</span>
+                <span class="pdf-preset-icon">🛡</span><span data-i18n="preset-medieval">Medieval</span>
               </button>
               <button class="pdf-preset" data-preset="samurai" title="Samurai">
-                <span class="pdf-preset-icon">⛩</span><span>Samurai</span>
+                <span class="pdf-preset-icon">⛩</span><span data-i18n="preset-samurai">Samurai</span>
               </button>
             </div>
             <button class="auditor-pdf-btn" id="pdfExportBtn" disabled>
@@ -791,6 +791,14 @@ const LANGS = {
     'audit-pdf-btn':'⬇ СКАЧАТЬ PDF ОТЧЁТ',
     'audit-ai-offline':'AI-движок недоступен — показан базовый локальный отчёт',
     'audit-retry':'↻ ПОВТОРИТЬ ЗАПРОС К AI',
+    'mode-auto':'АВТО',
+    'mode-security':'БЕЗОПАСНОСТЬ',
+    'mode-perf':'ПРОИЗВОДИТЕЛЬНОСТЬ',
+    'mode-style':'СТИЛЬ КОДА',
+    'preset-office':'Офисный',
+    'preset-cyberpunk':'Киберпанк',
+    'preset-medieval':'Средневековый',
+    'preset-samurai':'Самурайский',
     roles:['Full-Stack разработчик','AI разработчик','Python инженер','Архитектор ботов'],
   },
   en: {
@@ -829,6 +837,14 @@ const LANGS = {
     'audit-pdf-btn':'⬇ DOWNLOAD PDF REPORT',
     'audit-ai-offline':'AI Engine Offline — showing basic local report',
     'audit-retry':'↻ RETRY AI REQUEST',
+    'mode-auto':'AUTO',
+    'mode-security':'SECURITY',
+    'mode-perf':'PERFORMANCE',
+    'mode-style':'CODE STYLE',
+    'preset-office':'Office',
+    'preset-cyberpunk':'Cyberpunk',
+    'preset-medieval':'Medieval',
+    'preset-samurai':'Samurai',
     roles:['Full-Stack Developer','AI Developer','Python Engineer','Bot Architect'],
   }
 };
@@ -853,18 +869,52 @@ document.getElementById('langBtn').addEventListener('click', () => applyLang(cur
 
 async function detectLang() {
   if (localStorage.getItem('ogz-lang')) { applyLang(localStorage.getItem('ogz-lang'), true); return; }
+
+  const ruCC = ['RU','KZ','UA','BY','UZ','AZ','GE','AM','TJ','KG','TM','MD'];
+
+  // Browser language is only a fallback hint — many people keep OS language
+  // as Russian even while physically abroad (e.g. via VPN), so it must NOT
+  // be trusted as the final answer. We set it first only so the page isn't
+  // blank-feeling before the network call resolves, then IP geolocation
+  // (the actual source of truth) overrides it as soon as it's back.
   const br = (navigator.language || 'en').toLowerCase();
-  const ruCountries = ['ru','kz','ua','by','uz','az','ge','am','tj','kg','tm'];
-  let lang = ruCountries.some(c => br.startsWith(c)) ? 'ru' : 'en';
+  const ruLangHint = ['ru','kz','ua','by','uz','az','ge','am','tj','kg','tm'];
+  let lang = ruLangHint.some(c => br.startsWith(c)) ? 'ru' : 'en';
   applyLang(lang, true);
-  try {
-    const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 2500);
-    const res  = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
-    const data = await res.json();
-    const ruCC = ['RU','KZ','UA','BY','UZ','AZ','GE','AM','TJ','KG','TM','MD'];
-    lang = ruCC.includes(data.country_code) ? 'ru' : 'en';
+
+  // Try primary IP geolocation service, with a longer timeout (VPNs add latency)
+  async function tryIpapi() {
+    const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const res = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
+      clearTimeout(tid);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.country_code || null;
+    } catch(_) { clearTimeout(tid); return null; }
+  }
+
+  // Fallback geolocation service in case ipapi.co is blocked/rate-limited
+  async function tryIpwho() {
+    const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const res = await fetch('https://ipwho.is/', { signal: ctrl.signal });
+      clearTimeout(tid);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.country_code || null;
+    } catch(_) { clearTimeout(tid); return null; }
+  }
+
+  let countryCode = await tryIpapi();
+  if (!countryCode) countryCode = await tryIpwho();
+
+  if (countryCode) {
+    lang = ruCC.includes(countryCode) ? 'ru' : 'en';
     if (lang !== currentLang) applyLang(lang, false);
-  } catch(_) {}
+  }
+  // If both geolocation services failed, we silently keep the browser-language
+  // guess already applied above — better than nothing.
 }
 detectLang();
 
