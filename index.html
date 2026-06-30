@@ -2139,15 +2139,45 @@ addEventListener('click', e => {
     },
   };
 
-  /* ─────────────────────────────────────────────────────────────
-     3) FONT REGISTRATION — embed Roboto (Cyrillic-capable) into
-        jsPDF's virtual filesystem once, reused across exports.
-  ───────────────────────────────────────────────────────────── */
-  /* Each `new jsPDF()` call creates a brand-new document with its OWN
-     virtual filesystem — fonts must be registered on every instance,
-     not just once globally. (The earlier version cached a "registered"
-     flag across documents, which crashed every preset after the first.) */
-  function registerCyrillicFont(doc) {
+  const PRESET_FONTS = {
+      samurai: { regular: 'fonts/samurai.otf', bold: 'fonts/samurai.otf' },
+      medieval: { regular: 'fonts/medieval.otf', bold: 'fonts/medieval.otf' },
+      cyberpunk: { regular: 'fonts/cyberpunk.otf', bold: 'fonts/cyberpunk.otf' },
+  };
+
+  // In-memory cache: file path → base64 string (or null on failure)
+  const fontFileCache = {};
+
+  async function loadFontAsBase64(path) {
+    if (fontFileCache[path] !== undefined) return fontFileCache[path];
+    try {
+      const resp = await fetch(`${path}?v=${BG_CACHE_BUST}`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const buf = await resp.arrayBuffer();
+      // Convert ArrayBuffer → binary string → base64
+      const bytes = new Uint8Array(buf);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      const b64 = btoa(binary);
+      fontFileCache[path] = b64;
+      return b64;
+    } catch (e) {
+      console.warn(`Could not load font file "${path}":`, e.message);
+      fontFileCache[path] = null;
+      return null;
+    }
+  }
+
+  // Preload all configured font files in the background on page load so
+  // the first PDF export doesn't stall waiting for a font download.
+  Object.values(PRESET_FONTS).forEach(({ regular, bold }) => {
+    loadFontAsBase64(regular);
+    if (bold !== regular) loadFontAsBase64(bold);
+  });
+
+  // Always register Roboto (from fonts-cyrillic.js) as the base cyrillic font.
+  // Returns true if Roboto is available (fonts-cyrillic.js was loaded).
+  function registerRoboto(doc) {
     if (!window.__ROBOTO_REGULAR_B64 || !window.__ROBOTO_BOLD_B64) return false;
     try {
       doc.addFileToVFS('Roboto-Regular.ttf', window.__ROBOTO_REGULAR_B64);
@@ -2156,9 +2186,68 @@ addEventListener('click', e => {
       doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
       return true;
     } catch (e) {
-      console.warn('Cyrillic font registration failed, falling back to Helvetica:', e);
+      console.warn('Roboto registration failed:', e);
       return false;
     }
+  }
+
+  // Register a custom preset font into jsPDF's VFS.
+  // Returns the jsPDF font family name to use, or null on failure.
+  async function registerPresetFont(doc, presetKey) {
+    const cfg = PRESET_FONTS[presetKey];
+    if (!cfg) return null; // no custom font for this preset
+
+    const [regB64, boldB64] = await Promise.all([
+      loadFontAsBase64(cfg.regular),
+      loadFontAsBase64(cfg.bold),
+    ]);
+    if (!regB64) return null; // failed to load — fall back to Roboto
+
+    const fname = `preset-${presetKey}`;
+    const regFile = `${fname}-regular.otf`;
+    const boldFile = `${fname}-bold.otf`;
+    try {
+      doc.addFileToVFS(regFile, regB64);
+      doc.addFont(regFile, fname, 'normal');
+      if (boldB64 && boldB64 !== regB64) {
+        doc.addFileToVFS(boldFile, boldB64);
+        doc.addFont(boldFile, fname, 'bold');
+      } else {
+        // No distinct bold — re-register the same file under the 'bold' style
+        // so jsPDF doesn't fall back to Helvetica when bold is requested.
+        doc.addFileToVFS(boldFile, regB64);
+        doc.addFont(boldFile, fname, 'bold');
+      }
+      return fname;
+    } catch (e) {
+      console.warn(`Preset font registration failed for "${presetKey}":`, e);
+      return null;
+    }
+  }
+
+  // Main font setup for a PDF document. Returns the font family name to use
+  // as baseFont throughout that document. Always async because preset fonts
+  // may need to be fetched from the server.
+  async function setupDocumentFont(doc, presetKey) {
+    const hasRoboto = registerRoboto(doc);
+
+    // Try the preset-specific custom font first
+    const presetFontName = await registerPresetFont(doc, presetKey);
+    if (presetFontName) {
+      doc.setFont(presetFontName, 'normal');
+      console.log(`Using custom font "${presetFontName}" for preset "${presetKey}"`);
+      return presetFontName;
+    }
+
+    // Fall back to Roboto (full Cyrillic support)
+    if (hasRoboto) {
+      doc.setFont('Roboto', 'normal');
+      return 'Roboto';
+    }
+
+    // Last resort — built-in Helvetica (no Cyrillic, but won't crash)
+    doc.setFont('helvetica', 'normal');
+    return 'helvetica';
   }
 
   function wrapText(doc, text, maxWidth) {
@@ -2440,14 +2529,15 @@ addEventListener('click', e => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const W = 210, H = 297, M = 16;
 
-    const hasCyrillic = registerCyrillicFont(doc);
-    const baseFont = hasCyrillic ? 'Roboto' : 'helvetica';
-    doc.setFont(baseFont, 'normal');
-    // Override drawIssueCard/drawMetrics font calls to fall back gracefully
-    // by monkey-patching setFont calls to substitute when Roboto missing.
-    if (!hasCyrillic) {
+    const baseFont = await setupDocumentFont(doc, presetKey);
+
+    // If neither Roboto nor a custom font loaded, substitute 'helvetica'
+    // wherever the drawing helpers explicitly request 'Roboto' by name.
+    if (baseFont === 'helvetica') {
       const origSetFont = doc.setFont.bind(doc);
-      doc.setFont = (name, style) => origSetFont(name === 'Roboto' ? 'helvetica' : name, style);
+      doc.setFont = (name, style) => origSetFont(
+        (name === 'Roboto' || name.startsWith('preset-')) ? 'helvetica' : name, style
+      );
     }
 
     doc.setFillColor(...P.bg);
