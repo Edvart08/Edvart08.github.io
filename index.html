@@ -895,17 +895,6 @@ class Node {
     if (this.x > W - margin) this.vx -= (this.x - (W - margin)) * 0.05;
     if (this.y < margin)     this.vy += (margin - this.y) * 0.05;
     if (this.y > H - margin) this.vy -= (this.y - (H - margin)) * 0.05;
-    // Anchor nodes: gentle continuous pull toward center (no hard threshold —
-    // avoids creating a visible ring where the force suddenly kicks in)
-    if (this.anchor) {
-      const cdx = W/2 - this.x, cdy = H/2 - this.y;
-      const cdist = Math.sqrt(cdx*cdx + cdy*cdy) || 1;
-      const maxR = Math.min(W,H) * 0.42;
-      // Force ramps up smoothly with distance — strongest pull far away, ~0 near center
-      const pull = Math.min(1, cdist / maxR) * 0.025;
-      this.vx += (cdx / cdist) * pull;
-      this.vy += (cdy / cdist) * pull;
-    }
     if (this.x < -200 || this.x > W+200 || this.y < -200 || this.y > H+200) {
       this.x = W*0.25 + Math.random()*W*0.5;
       this.y = H*0.25 + Math.random()*H*0.5;
@@ -945,13 +934,6 @@ class Packet {
 
 const N_NODES = innerWidth < 600 ? 70 : 150;
 const PS = Array.from({length: N_NODES}, () => new Node(true));
-// 30% of nodes are anchors — they always drift back toward center
-const nAnchors = Math.floor(N_NODES * 0.30);
-for (let i = 0; i < nAnchors; i++) {
-  PS[i].anchor = true;
-  PS[i].x = W/2 + (Math.random()-0.5)*W*0.30;
-  PS[i].y = H/2 + (Math.random()-0.5)*H*0.30;
-}
 let packets = [];
 let lastPacketTime = 0;
 let lastTime = performance.now();
@@ -1416,7 +1398,9 @@ function triggerMatrix(dur) {
 
   const mc = document.createElement('canvas');
   mc.id = 'matrix-c';
-  mc.style.cssText = 'position:fixed;inset:0;z-index:8999;pointer-events:none;opacity:0;transition:opacity 2.2s ease';
+  // No CSS transition on opacity — we drive it purely via JS/rAF to avoid
+  // the stutter caused by CSS transition fighting per-frame inline updates.
+  mc.style.cssText = 'position:fixed;inset:0;z-index:8999;pointer-events:none;opacity:0;';
   document.body.appendChild(mc);
   mc.width = innerWidth; mc.height = innerHeight;
   const mctx = mc.getContext('2d');
@@ -1424,8 +1408,14 @@ function triggerMatrix(dur) {
   const drops = new Array(cols).fill(1);
   const chars = 'アウエオPYTHONFASTAPIREACTAIGROQOPENAI01LLM';
 
-  // Fade IN slowly — 2.2s
-  requestAnimationFrame(() => { mc.style.opacity = 1; });
+  // Fade IN — pure rAF, smooth and consistent with fade-out method
+  const fadeInDur = 1400;
+  const fadeInStart = performance.now();
+  (function fadeIn(now) {
+    const p = Math.min(1, (now - fadeInStart) / fadeInDur);
+    mc.style.opacity = p.toFixed(3);
+    if (p < 1) requestAnimationFrame(fadeIn);
+  })(fadeInStart);
 
   const inv = setInterval(() => {
     mctx.fillStyle = 'rgba(5,5,10,0.055)';
@@ -1440,35 +1430,42 @@ function triggerMatrix(dur) {
     });
   }, 40);
 
-  // Keep drawing for 'dur', then start a very long graceful fade
+  // After 'dur', fade out smoothly. Keep the rain animating during fade
+  // (don't freeze the last frame) so the fade reads as continuous, not stuttery.
   setTimeout(() => {
-    clearInterval(inv);
-    // Continue drawing but fading — use requestAnimationFrame fade
-    let opacity = 1;
-    const fadeDuration = 1800; // faster, still smooth fade-out
+    const fadeDuration = 1600;
     const fadeStart = performance.now();
     (function fadeStep(now) {
-      opacity = 1 - (now - fadeStart) / fadeDuration;
+      const elapsed = now - fadeStart;
+      const opacity = Math.max(0, 1 - elapsed / fadeDuration);
+      mc.style.opacity = opacity.toFixed(3);
       if (opacity > 0) {
-        mc.style.opacity = Math.max(0, opacity).toFixed(3);
         requestAnimationFrame(fadeStep);
       } else {
-        mc.style.opacity = '0';
-        setTimeout(() => mc.remove(), 200);
+        clearInterval(inv);
+        mc.remove();
       }
-    })(performance.now());
+    })(fadeStart);
   }, dur);
 }
 
 document.getElementById('ogzLogo').addEventListener('click', () => {
   const old = document.getElementById('matrix-c');
   if (old) {
-    // graceful hand-off: fade current out over 1.8s, then start new
-    let op = parseFloat(old.style.opacity) || 1;
-    const fadeOld = setInterval(() => {
-      op -= 0.04; old.style.opacity = Math.max(0, op).toFixed(2);
-      if (op <= 0) { clearInterval(fadeOld); old.remove(); triggerMatrix(4000); }
-    }, 40);
+    // graceful hand-off: fade current out smoothly, then start new
+    const startOp = parseFloat(old.style.opacity) || 1;
+    const fadeStart = performance.now();
+    const fadeDur = 900;
+    (function fadeOld(now) {
+      const p = Math.min(1, (now - fadeStart) / fadeDur);
+      old.style.opacity = (startOp * (1 - p)).toFixed(3);
+      if (p < 1) {
+        requestAnimationFrame(fadeOld);
+      } else {
+        old.remove();
+        triggerMatrix(4000);
+      }
+    })(fadeStart);
   } else {
     triggerMatrix(4000);
   }
