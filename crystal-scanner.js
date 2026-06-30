@@ -23,7 +23,7 @@ function init() {
   /* ── Renderer ── */
   const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, powerPreference:'high-performance' });
   renderer.setSize(W, CANVAS_H);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, innerWidth < 600 ? 1.3 : 2));
   renderer.toneMapping         = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
   renderer.outputColorSpace    = THREE.SRGBColorSpace;
@@ -33,7 +33,13 @@ function init() {
 
   const scene  = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(48, W/CANVAS_H, 0.1, 100);
-  camera.position.set(0, 0, 8.0);
+  // On narrow viewports the aspect ratio shrinks getGemX() toward the center,
+  // making both gems visually overlap. Pull the camera back so there's more
+  // room between them, and shrink the gem groups slightly to compensate.
+  const isNarrow = W < 560;
+  const camZ = isNarrow ? 11.5 : 8.0;
+  camera.position.set(0, 0, camZ);
+  const gemScaleFactor = isNarrow ? 0.78 : 1.0;
 
   /* ── Lighting ── */
   scene.add(new THREE.AmbientLight(0x0a1a33, 5));
@@ -45,7 +51,7 @@ function init() {
   scene.add(lL, lLf, lR, lRf, lT);
 
   const getGemX = () => {
-    const halfH = Math.tan((48/2)*Math.PI/180)*8.0;
+    const halfH = Math.tan((48/2)*Math.PI/180)*camZ;
     return halfH*(W/CANVAS_H)*0.50;
   };
 
@@ -524,16 +530,16 @@ function init() {
     if(ns!==hovSide){
       hovSide=ns;
       if(ns==='left'){
-        gsap.to(leftGroup.scale,{x:1.12,y:1.12,z:1.12,duration:0.5,ease:'power2.out'});
-        gsap.to(rightGroup.scale,{x:0.92,y:0.92,z:0.92,duration:0.4,ease:'power2.out'});
+        gsap.to(leftGroup.scale,{x:gemScaleFactor*1.12,y:gemScaleFactor*1.12,z:gemScaleFactor*1.12,duration:0.5,ease:'power2.out'});
+        gsap.to(rightGroup.scale,{x:gemScaleFactor*0.92,y:gemScaleFactor*0.92,z:gemScaleFactor*0.92,duration:0.4,ease:'power2.out'});
         setPanelHover('left'); setChartHighlight(false);
       } else if(ns==='right'){
-        gsap.to(rightGroup.scale,{x:1.12,y:1.12,z:1.12,duration:0.5,ease:'power2.out'});
-        gsap.to(leftGroup.scale,{x:0.92,y:0.92,z:0.92,duration:0.4,ease:'power2.out'});
+        gsap.to(rightGroup.scale,{x:gemScaleFactor*1.12,y:gemScaleFactor*1.12,z:gemScaleFactor*1.12,duration:0.5,ease:'power2.out'});
+        gsap.to(leftGroup.scale,{x:gemScaleFactor*0.92,y:gemScaleFactor*0.92,z:gemScaleFactor*0.92,duration:0.4,ease:'power2.out'});
         setPanelHover('right'); setChartHighlight(true);
       } else {
-        gsap.to(leftGroup.scale,{x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
-        gsap.to(rightGroup.scale,{x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
+        gsap.to(leftGroup.scale,{x:gemScaleFactor,y:gemScaleFactor,z:gemScaleFactor,duration:0.7,ease:'elastic.out(1,0.5)'});
+        gsap.to(rightGroup.scale,{x:gemScaleFactor,y:gemScaleFactor,z:gemScaleFactor,duration:0.7,ease:'elastic.out(1,0.5)'});
         clearPanelHover(); setChartHighlight(false);
       }
     }
@@ -542,8 +548,8 @@ function init() {
   });
   renderer.domElement.addEventListener('mouseleave',()=>{
     hovSide=null; mWorld.set(0,0,0);
-    gsap.to(leftGroup.scale,{x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
-    gsap.to(rightGroup.scale,{x:1,y:1,z:1,duration:0.7,ease:'elastic.out(1,0.5)'});
+    gsap.to(leftGroup.scale,{x:gemScaleFactor,y:gemScaleFactor,z:gemScaleFactor,duration:0.7,ease:'elastic.out(1,0.5)'});
+    gsap.to(rightGroup.scale,{x:gemScaleFactor,y:gemScaleFactor,z:gemScaleFactor,duration:0.7,ease:'elastic.out(1,0.5)'});
     clearPanelHover(); setChartHighlight(false);
   });
   renderer.domElement.addEventListener('click',e=>{
@@ -555,8 +561,8 @@ function init() {
 
   /* ── Intro ── */
   leftGroup.scale.setScalar(0.001); rightGroup.scale.setScalar(0.001);
-  gsap.to(leftGroup.scale,  {x:1,y:1,z:1,duration:1.4,delay:0.30,ease:'elastic.out(1,0.42)'});
-  gsap.to(rightGroup.scale, {x:1,y:1,z:1,duration:1.4,delay:0.65,ease:'elastic.out(1,0.42)'});
+  gsap.to(leftGroup.scale,  {x:gemScaleFactor,y:gemScaleFactor,z:gemScaleFactor,duration:1.4,delay:0.30,ease:'elastic.out(1,0.42)'});
+  gsap.to(rightGroup.scale, {x:gemScaleFactor,y:gemScaleFactor,z:gemScaleFactor,duration:1.4,delay:0.65,ease:'elastic.out(1,0.42)'});
 
   const positionGems=()=>{const x=getGemX();leftGroup.position.set(-x,0,0);rightGroup.position.set(x,0,0);};
   positionGems();
