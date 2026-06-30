@@ -1688,10 +1688,11 @@ addEventListener('click', e => {
   // Call FastAPI backend
   // Call the Cloudflare Worker, which calls Groq's LLM and returns clean JSON
   async function callBackend(code) {
+    const lang = (window.currentLang === 'en') ? 'en' : 'ru';
     const r = await fetch(AUDIT_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, mode: activeMode }),
+      body: JSON.stringify({ code, mode: activeMode, lang }),
     });
     if (!r.ok) {
       let detail = '';
@@ -1706,15 +1707,44 @@ addEventListener('click', e => {
     const lines = code.split('\n');
     const issues = [];
     let complexity = 'Low';
+    const isRu = (window.currentLang !== 'en');
 
     const patterns = [
-      { re: /import \w+\s*$/, label: 'Unused import detected', type: 'warn' },
-      { re: /except\s*:/, label: 'Bare except clause — catches all errors', type: 'warn' },
-      { re: /print\s*\(/, label: 'print() found — use logging instead', type: 'warn' },
-      { re: /TODO|FIXME|HACK/, label: 'TODO/FIXME comment found', type: 'warn' },
-      { re: /password\s*=\s*["\'].+["\']/, label: 'Hardcoded credential detected!', type: 'err' },
-      { re: /eval\s*\(/, label: 'eval() usage — security risk', type: 'err' },
-      { re: /def .+\(.{80,}\)/, label: 'Long function signature', type: 'warn' },
+      { re: /import \w+\s*$/, type: 'warn',
+        label: isRu ? 'Обнаружен неиспользуемый импорт' : 'Unused import detected',
+        why:   isRu ? 'Неиспользуемые импорты засоряют пространство имён, увеличивают время загрузки модуля и сбивают с толку при чтении кода.' : 'Unused imports clutter the namespace, slow module load time, and confuse readers about actual dependencies.',
+        fix:   isRu ? 'Удали импорт, если он не используется, или используй линтер (flake8/ruff) для автоматического обнаружения.' : 'Remove the import if unused, or run a linter (flake8/ruff) to catch these automatically.',
+        fixCode: '' },
+      { re: /except\s*:/, type: 'warn',
+        label: isRu ? 'Голый except — перехватывает все исключения' : 'Bare except clause — catches all errors',
+        why:   isRu ? 'Голый except скрывает реальные ошибки (включая KeyboardInterrupt, SystemExit), усложняя отладку и маскируя баги.' : 'A bare except silently swallows all exceptions (including KeyboardInterrupt, SystemExit), hiding real bugs and making debugging much harder.',
+        fix:   isRu ? 'Указывай конкретный тип исключения вместо голого except.' : 'Catch a specific exception type instead of a bare except.',
+        fixCode: 'except ValueError as e:\n    logger.error(f"Invalid value: {e}")' },
+      { re: /print\s*\(/, type: 'warn',
+        label: isRu ? 'Использован print() вместо логирования' : 'print() found — use logging instead',
+        why:   isRu ? 'print() нельзя отключить или настроить по уровню важности в продакшене, в отличие от полноценного логирования.' : 'print() output can\'t be filtered by severity or disabled in production, unlike a proper logging setup.',
+        fix:   isRu ? 'Замени print() на logging.info()/debug() с настроенным logger.' : 'Replace print() with logging.info()/debug() using a configured logger.',
+        fixCode: 'import logging\nlogger = logging.getLogger(__name__)\nlogger.info("message")' },
+      { re: /TODO|FIXME|HACK/, type: 'warn',
+        label: isRu ? 'Найден комментарий TODO/FIXME' : 'TODO/FIXME comment found',
+        why:   isRu ? 'Незавершённый код, помеченный TODO, часто остаётся забытым и попадает в продакшен.' : 'Code marked TODO/FIXME is often forgotten and can ship to production unfinished.',
+        fix:   isRu ? 'Заведи тикет в трекере задач и убери комментарий, либо доделай сразу.' : 'File a tracked issue and remove the comment, or finish the work now.',
+        fixCode: '' },
+      { re: /password\s*=\s*["\'].+["\']/, type: 'err',
+        label: isRu ? 'Обнаружен захардкоженный пароль!' : 'Hardcoded credential detected!',
+        why:   isRu ? 'Пароли в коде попадают в систему контроля версий и видны каждому с доступом к репозиторию — серьёзная уязвимость.' : 'Hardcoded credentials end up in version control and are visible to anyone with repo access — a serious security risk.',
+        fix:   isRu ? 'Перенеси секрет в переменные окружения (.env) и используй python-dotenv или os.environ.' : 'Move the secret to an environment variable (.env) and load it via python-dotenv or os.environ.',
+        fixCode: 'import os\npassword = os.environ["DB_PASSWORD"]' },
+      { re: /eval\s*\(/, type: 'err',
+        label: isRu ? 'Использование eval() — угроза безопасности' : 'eval() usage — security risk',
+        why:   isRu ? 'eval() выполняет произвольный код — если в него попадут пользовательские данные, это прямой путь к remote code execution.' : 'eval() executes arbitrary code — if user input reaches it, that\'s a direct path to remote code execution.',
+        fix:   isRu ? 'Используй ast.literal_eval() для безопасного парсинга данных, либо json.loads() для JSON.' : 'Use ast.literal_eval() for safe data parsing, or json.loads() for JSON.',
+        fixCode: 'import ast\nresult = ast.literal_eval(user_input)' },
+      { re: /def .+\(.{80,}\)/, type: 'warn',
+        label: isRu ? 'Слишком длинная сигнатура функции' : 'Long function signature',
+        why:   isRu ? 'Функции с большим числом параметров сложно вызывать правильно и легко перепутать порядок аргументов.' : 'Functions with many parameters are error-prone to call correctly and easy to mix up argument order.',
+        fix:   isRu ? 'Сгруппируй связанные параметры в dataclass или используй именованные keyword-only аргументы.' : 'Group related parameters into a dataclass, or use keyword-only arguments.',
+        fixCode: '' },
     ];
 
     let ifCount = (code.match(/\bif\b/g)||[]).length;
@@ -1725,7 +1755,7 @@ addEventListener('click', e => {
 
     lines.forEach((line, i) => {
       patterns.forEach(p => {
-        if (p.re.test(line)) issues.push({ line: i+1, label: p.label, type: p.type });
+        if (p.re.test(line)) issues.push({ line: i+1, label: p.label, type: p.type, why: p.why, fix: p.fix, fixCode: p.fixCode });
       });
     });
 
@@ -1737,10 +1767,11 @@ addEventListener('click', e => {
       score,
       issues,
       summary: issues.length === 0
-        ? 'Code looks clean. No critical issues found.'
-        : `Found ${issues.length} issue${issues.length>1?'s':''}: ${issues.map(i=>i.label).join('; ')}.`,
+        ? (isRu ? 'Код выглядит чистым. Критических проблем не найдено.' : 'Code looks clean. No critical issues found.')
+        : (isRu ? `Найдено проблем: ${issues.length}. Локальный анализатор использует базовые статические правила — для более глубокого разбора подключите AI-движок.` : `Found ${issues.length} issue${issues.length>1?'s':''}. Local analyzer uses basic static rules — connect the AI engine for deeper analysis.`),
     };
   }
+
 
   runBtn.addEventListener('click', async () => {
     const raw = input.value.trim();
@@ -1824,7 +1855,7 @@ addEventListener('click', e => {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') runBtn.click(); });
 })();
 
-/* ════════════════ PDF Report Generator ════════════════ */
+/* ════════════════ PDF Report Generator (v3 — i18n + deep analysis + dynamic layouts) ════════════════ */
 (function(){
   const presetBtns = document.querySelectorAll('.pdf-preset');
   const pdfBtn = document.getElementById('pdfExportBtn');
@@ -1839,56 +1870,158 @@ addEventListener('click', e => {
     });
   });
 
-  /* ── Style preset configuration ──────────────────────────────
-     Each preset defines colors, fonts and decorative elements used
-     when laying out the PDF. jsPDF's built-in fonts are Helvetica,
-     Times, and Courier — we map each preset to whichever reads
-     closest to the intended mood. */
+  /* ─────────────────────────────────────────────────────────────
+     1) LOCALIZATION — report strings as a JSON-like dictionary.
+        Keyed by language ('ru'/'en'), independent from the site's
+        own LANGS object so the PDF module stays self-contained.
+  ───────────────────────────────────────────────────────────── */
+  const REPORT_I18N = {
+    ru: {
+      titles: {
+        office:    'ОТЧЁТ ОБ АУДИТЕ КОДА',
+        cyberpunk: '> CODE_AUDIT.EXE',
+        medieval:  'УКАЗ О ПРОВЕРКЕ КОДА',
+        samurai:   '武 АУДИТ КОДА 武',
+      },
+      meta: 'Дата составления',
+      engine: 'Движок',
+      engineAI: 'Groq LLaMA-3.3-70B',
+      engineLocal: 'Локальные статические правила',
+      mode: 'Режим',
+      source: 'Источник',
+      sourcePlaceholder: 'вставленный код',
+      metricComplexity: 'СЛОЖНОСТЬ',
+      metricIssues: 'НАЙДЕНО ПРОБЛЕМ',
+      metricScore: 'ОЦЕНКА / 100',
+      summaryTitle: 'Сводка',
+      summaryTitleCyber: '// СВОДКА',
+      issuesTitle: 'Детальный разбор проблем',
+      issuesTitleCyber: '// ДЕТАЛЬНЫЙ РАЗБОР',
+      issueCritical: 'КРИТИЧНО',
+      issueWarning: 'ВНИМАНИЕ',
+      whyLabel: 'Почему это проблема:',
+      fixLabel: 'Как исправить:',
+      codeLabel: 'Пример исправления:',
+      noIssues: 'Проблем не обнаружено — код выглядит чистым.',
+      footers: {
+        office:    'Сформировано Oguzok AI Code Auditor — конфиденциальный отчёт',
+        cyberpunk: '[ СГЕНЕРИРОВАНО: OGUZOK.AI_AUDITOR v3.0 // КОНЕЦ ПЕРЕДАЧИ ]',
+        medieval:  'Скреплено печатью Инспекции Кода Oguzok',
+        samurai:   'この書類はOguzok AIにより生成された',
+      },
+    },
+    en: {
+      titles: {
+        office:    'CODE AUDIT REPORT',
+        cyberpunk: '> CODE_AUDIT.EXE',
+        medieval:  'DECREE OF CODE INSPECTION',
+        samurai:   '武 CODE AUDIT 武',
+      },
+      meta: 'Generated',
+      engine: 'Engine',
+      engineAI: 'Groq LLaMA-3.3-70B',
+      engineLocal: 'Local Static Rules',
+      mode: 'Mode',
+      source: 'Source',
+      sourcePlaceholder: 'pasted code',
+      metricComplexity: 'COMPLEXITY',
+      metricIssues: 'ISSUES FOUND',
+      metricScore: 'SCORE / 100',
+      summaryTitle: 'Summary',
+      summaryTitleCyber: '// SUMMARY',
+      issuesTitle: 'Detailed Issue Breakdown',
+      issuesTitleCyber: '// DETAILED BREAKDOWN',
+      issueCritical: 'CRITICAL',
+      issueWarning: 'WARNING',
+      whyLabel: 'Why this is a problem:',
+      fixLabel: 'How to fix:',
+      codeLabel: 'Example fix:',
+      noIssues: 'No issues found — code looks clean.',
+      footers: {
+        office:    'Generated by Oguzok AI Code Auditor — Confidential Report',
+        cyberpunk: '[ GENERATED_BY: OGUZOK.AI_AUDITOR v3.0 // END_OF_TRANSMISSION ]',
+        medieval:  'Sealed and certified by the Oguzok Code Inspectorate',
+        samurai:   'Generated by Oguzok AI',
+      },
+    },
+  };
+
+  function getLang() {
+    return (window.currentLang === 'en') ? 'en' : 'ru';
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     2) STYLE PRESETS — colors + decorative parameters per style.
+        cornerStyle and layout-affecting flags are read by the
+        layout engine below to change WHERE elements go, not just
+        how they look.
+  ───────────────────────────────────────────────────────────── */
   const PRESETS = {
     office: {
-      name: 'Office Report',
       bg: [255,255,255], panel: [245,247,250], border: [200,206,214],
       headerBg: [30,46,74], headerText: [255,255,255],
       accent: [40,90,180], text: [30,34,40], dim: [110,118,130],
       ok: [30,140,80], warn: [185,120,15], err: [180,40,40],
-      font: 'times', titleFont: 'helvetica',
       cornerStyle: 'square',
+      layout: 'linear',       // metrics row -> summary -> issues, single column
     },
     cyberpunk: {
-      name: 'Cyberpunk',
       bg: [6,8,16], panel: [12,16,28], border: [0,220,255],
       headerBg: [10,12,24], headerText: [0,240,255],
       accent: [0,240,255], text: [210,240,255], dim: [110,140,170],
       ok: [0,255,140], warn: [255,190,0], err: [255,40,120],
-      font: 'courier', titleFont: 'courier',
       cornerStyle: 'notch',
+      layout: 'sidebar',      // metrics as a left sidebar column, content flows right
     },
     medieval: {
-      name: 'Medieval Decree',
       bg: [243,232,201], panel: [233,217,176], border: [110,80,40],
       headerBg: [60,40,20], headerText: [233,217,176],
       accent: [120,30,30], text: [50,35,15], dim: [110,90,60],
       ok: [60,90,40], warn: [150,90,20], err: [120,25,25],
-      font: 'times', titleFont: 'times',
       cornerStyle: 'ornate',
+      layout: 'centered',     // metrics centered under a banner, wide margins
     },
     samurai: {
-      name: 'Samurai Scroll',
       bg: [20,18,16], panel: [32,28,24], border: [180,30,40],
       headerBg: [18,16,14], headerText: [220,200,180],
       accent: [200,30,40], text: [225,215,200], dim: [140,125,110],
       ok: [150,180,90], warn: [220,160,60], err: [220,40,50],
-      font: 'helvetica', titleFont: 'helvetica',
       cornerStyle: 'brush',
+      layout: 'scroll',       // vertical scroll feel: score badge top-right, metrics stacked
     },
   };
 
+  /* ─────────────────────────────────────────────────────────────
+     3) FONT REGISTRATION — embed Roboto (Cyrillic-capable) into
+        jsPDF's virtual filesystem once, reused across exports.
+  ───────────────────────────────────────────────────────────── */
+  let fontsRegistered = false;
+  function registerCyrillicFont(doc) {
+    if (fontsRegistered) {
+      doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+      doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+      return true;
+    }
+    if (!window.__ROBOTO_REGULAR_B64 || !window.__ROBOTO_BOLD_B64) return false;
+    doc.addFileToVFS('Roboto-Regular.ttf', window.__ROBOTO_REGULAR_B64);
+    doc.addFileToVFS('Roboto-Bold.ttf', window.__ROBOTO_BOLD_B64);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+    fontsRegistered = true;
+    return true;
+  }
+
+  function wrapText(doc, text, maxWidth) {
+    return doc.splitTextToSize(String(text || ''), maxWidth);
+  }
+
   function drawCorner(doc, x, y, size, style, color) {
     doc.setDrawColor(...color);
-    doc.setLineWidth(0.6);
     if (style === 'notch') {
+      doc.setLineWidth(0.6);
       doc.line(x, y, x+size, y); doc.line(x, y, x, y+size);
     } else if (style === 'ornate') {
+      doc.setLineWidth(0.5);
       doc.circle(x, y, 1.4, 'S');
       doc.line(x, y, x+size*0.6, y); doc.line(x, y, x, y+size*0.6);
     } else if (style === 'brush') {
@@ -1900,133 +2033,354 @@ addEventListener('click', e => {
     }
   }
 
-  function wrapText(doc, text, maxWidth) {
-    return doc.splitTextToSize(text, maxWidth);
+  // Ensures we never write past the bottom margin without paginating
+  function ensureSpace(doc, y, needed, P, H, M) {
+    if (y + needed > H - 20) {
+      doc.addPage();
+      doc.setFillColor(...P.bg);
+      doc.rect(0, 0, doc.internal.pageSize.getWidth(), H, 'F');
+      return M;
+    }
+    return y;
   }
 
+  /* ─────────────────────────────────────────────────────────────
+     4) METRICS ROW — shared drawing routine used by every layout,
+        but called with different x/y/width depending on the style.
+  ───────────────────────────────────────────────────────────── */
+  function drawMetrics(doc, P, T, result, x, y, totalWidth, boxH, vertical) {
+    const metricData = [
+      { label: T.metricComplexity, value: result.complexity || '—', color: result.complexity === 'High' ? P.warn : result.complexity === 'Low' ? P.ok : P.accent },
+      { label: T.metricIssues,     value: String(result.issues_found ?? 0), color: (result.issues_found||0) > 5 ? P.warn : P.ok },
+      { label: T.metricScore,      value: String(result.score ?? 0), color: (result.score||0) >= 80 ? P.ok : (result.score||0) >= 50 ? P.accent : P.err },
+    ];
+    if (vertical) {
+      const bh = boxH;
+      metricData.forEach((m, i) => {
+        const by = y + i * (bh + 5);
+        doc.setFillColor(...P.panel); doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
+        doc.roundedRect(x, by, totalWidth, bh, P.cornerStyle==='notch'?0:1.5, P.cornerStyle==='notch'?0:1.5, 'FD');
+        drawCorner(doc, x, by, 4, P.cornerStyle, P.accent);
+        doc.setFont('Roboto', 'bold'); doc.setFontSize(15); doc.setTextColor(...m.color);
+        doc.text(m.value, x + totalWidth/2, by + bh*0.45, { align: 'center' });
+        doc.setFont('Roboto', 'normal'); doc.setFontSize(6.3); doc.setTextColor(...P.dim);
+        doc.text(m.label, x + totalWidth/2, by + bh*0.75, { align: 'center', maxWidth: totalWidth - 4 });
+      });
+      return y + metricData.length * (bh + 5);
+    } else {
+      const gap = 6;
+      const boxW = (totalWidth - gap*2) / 3;
+      metricData.forEach((m, i) => {
+        const bx = x + i * (boxW + gap);
+        doc.setFillColor(...P.panel); doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
+        doc.roundedRect(bx, y, boxW, boxH, P.cornerStyle==='notch'?0:1.5, P.cornerStyle==='notch'?0:1.5, 'FD');
+        drawCorner(doc, bx, y, 4, P.cornerStyle, P.accent);
+        doc.setFont('Roboto', 'bold'); doc.setFontSize(15); doc.setTextColor(...m.color);
+        doc.text(m.value, bx + boxW/2, y + boxH*0.55, { align: 'center' });
+        doc.setFont('Roboto', 'normal'); doc.setFontSize(6.3); doc.setTextColor(...P.dim);
+        doc.text(m.label, bx + boxW/2, y + boxH*0.82, { align: 'center' });
+      });
+      return y + boxH;
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     5) DEEP ISSUE CARD — renders one issue with description,
+        why it matters, how to fix it, and an optional code sample.
+        Shared across all layouts; only x/width/colors change.
+  ───────────────────────────────────────────────────────────── */
+  function drawIssueCard(doc, P, T, iss, x, y, width, H, M) {
+    y = ensureSpace(doc, y, 14, P, H, M);
+    const col = iss.type === 'err' ? P.err : P.warn;
+
+    // Severity badge + title
+    doc.setFillColor(...col);
+    doc.circle(x + 1.6, y - 1.2, 1.6, 'F');
+    doc.setFont('Roboto', 'bold'); doc.setFontSize(9); doc.setTextColor(...col);
+    const lineTag = iss.line ? `[L${iss.line}] ` : '';
+    const sevTag = iss.type === 'err' ? T.issueCritical : T.issueWarning;
+    doc.text(`${lineTag}${sevTag}`, x + 6, y);
+    y += 4.8;
+
+    doc.setFont('Roboto', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
+    const titleLines = wrapText(doc, iss.label, width - 6);
+    y = ensureSpace(doc, y, titleLines.length*4.4, P, H, M);
+    doc.text(titleLines, x + 6, y);
+    y += titleLines.length * 4.4 + 3;
+
+    // WHY
+    if (iss.why) {
+      y = ensureSpace(doc, y, 10, P, H, M);
+      doc.setFont('Roboto', 'bold'); doc.setFontSize(7.8); doc.setTextColor(...P.accent);
+      doc.text(T.whyLabel, x + 6, y); y += 4;
+      doc.setFont('Roboto', 'normal'); doc.setFontSize(8.2); doc.setTextColor(...P.text);
+      const whyLines = wrapText(doc, iss.why, width - 6);
+      y = ensureSpace(doc, y, whyLines.length*4, P, H, M);
+      doc.text(whyLines, x + 6, y);
+      y += whyLines.length * 4 + 3;
+    }
+
+    // FIX
+    if (iss.fix) {
+      y = ensureSpace(doc, y, 10, P, H, M);
+      doc.setFont('Roboto', 'bold'); doc.setFontSize(7.8); doc.setTextColor(...P.ok);
+      doc.text(T.fixLabel, x + 6, y); y += 4;
+      doc.setFont('Roboto', 'normal'); doc.setFontSize(8.2); doc.setTextColor(...P.text);
+      const fixLines = wrapText(doc, iss.fix, width - 6);
+      y = ensureSpace(doc, y, fixLines.length*4, P, H, M);
+      doc.text(fixLines, x + 6, y);
+      y += fixLines.length * 4 + 3;
+    }
+
+    // CODE EXAMPLE
+    if (iss.fixCode && iss.fixCode.trim()) {
+      y = ensureSpace(doc, y, 14, P, H, M);
+      doc.setFont('Roboto', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...P.dim);
+      doc.text(T.codeLabel, x + 6, y); y += 4;
+      const codeLines = String(iss.fixCode).split('\n').slice(0, 8);
+      const codeBoxH = codeLines.length * 4.2 + 4;
+      y = ensureSpace(doc, y, codeBoxH, P, H, M);
+      doc.setFillColor(P.bg[0]<128?40:20, P.bg[0]<128?42:22, P.bg[0]<128?48:26);
+      doc.roundedRect(x + 4, y - 2, width - 8, codeBoxH, 1, 1, 'F');
+      doc.setFont('courier', 'normal'); doc.setFontSize(7.6);
+      doc.setTextColor(P.ok[0], P.ok[1], P.ok[2]);
+      codeLines.forEach((cl, i) => {
+        doc.text(cl.slice(0, 90), x + 7, y + 3 + i*4.2);
+      });
+      y += codeBoxH + 5;
+    }
+
+    // Divider
+    doc.setDrawColor(...P.border); doc.setLineWidth(0.15);
+    doc.line(x, y, x + width, y);
+    y += 6;
+
+    return y;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     6) LAYOUT ENGINE — each style preset drives a different
+        document structure, not just different colors:
+       - office:    single-column, linear top-to-bottom
+       - cyberpunk: left sidebar holds metrics, main column scrolls
+                    issues — like a terminal dashboard split-view
+       - medieval:  centered banner + centered metrics block,
+                     generous margins like an official decree
+       - samurai:   vertical "scroll" feel — score badge pinned
+                     top-right, metrics stacked down the left edge
+  ───────────────────────────────────────────────────────────── */
   function generatePDF(result, presetKey) {
     const P = PRESETS[presetKey] || PRESETS.office;
+    const T = REPORT_I18N[getLang()];
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const W = 210, H = 297, M = 16;
-    let y = 0;
 
-    // Page background
+    const hasCyrillic = registerCyrillicFont(doc);
+    const baseFont = hasCyrillic ? 'Roboto' : 'helvetica';
+    doc.setFont(baseFont, 'normal');
+    // Override drawIssueCard/drawMetrics font calls to fall back gracefully
+    // by monkey-patching setFont calls to substitute when Roboto missing.
+    if (!hasCyrillic) {
+      const origSetFont = doc.setFont.bind(doc);
+      doc.setFont = (name, style) => origSetFont(name === 'Roboto' ? 'helvetica' : name, style);
+    }
+
     doc.setFillColor(...P.bg);
     doc.rect(0, 0, W, H, 'F');
 
-    // Header bar
-    const headH = 34;
-    doc.setFillColor(...P.headerBg);
-    doc.rect(0, 0, W, headH, 'F');
-    if (presetKey === 'cyberpunk') {
+    let y;
+
+    if (P.layout === 'sidebar') {
+      /* ── CYBERPUNK: left sidebar (metrics) + right content column ── */
+      const sideW = 52;
+      doc.setFillColor(...P.headerBg);
+      doc.rect(0, 0, W, 30, 'F');
       doc.setDrawColor(...P.accent); doc.setLineWidth(0.4);
-      doc.line(0, headH, W, headH);
-      doc.line(0, headH-1.2, W, headH-1.2);
-    }
-    if (presetKey === 'samurai') {
-      doc.setDrawColor(...P.border); doc.setLineWidth(1.5);
-      doc.line(0, headH, W, headH);
-    }
-    if (presetKey === 'medieval') {
-      doc.setDrawColor(...P.border); doc.setLineWidth(1);
-      doc.line(M*0.5, headH+2, W-M*0.5, headH+2);
-    }
+      doc.line(0, 30, W, 30); doc.line(0, 28.8, W, 28.8);
+      doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(17);
+      doc.text(T.titles.cyberpunk, M, 14);
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(...P.headerText);
+      doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}`, M, 21);
+      doc.text(`${T.mode}: ${(result.mode||'auto').toUpperCase()}  ·  ${T.engine}: ${result.usedAI ? T.engineAI : T.engineLocal}`, M, 26);
 
-    doc.setTextColor(...P.headerText);
-    doc.setFont(P.titleFont, 'bold');
-    doc.setFontSize(20);
-    const titleMap = {
-      office: 'CODE AUDIT REPORT',
-      cyberpunk: '> CODE_AUDIT.EXE',
-      medieval: 'DECREE OF CODE INSPECTION',
-      samurai: '武 CODE AUDIT 武',
-    };
-    doc.text(titleMap[presetKey] || 'CODE AUDIT REPORT', M, 16);
-    doc.setFont(P.font, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...P.headerText);
-    const dateStr = new Date().toLocaleString(window.currentLang === 'en' ? 'en-US' : 'ru-RU');
-    doc.text(`${dateStr}  ·  OGUZOK AI AUDITOR`, M, 24);
-    doc.text(`Mode: ${(result.mode||'auto').toUpperCase()}  ·  Engine: ${result.usedAI ? 'Groq LLaMA-3.3-70B' : 'Local Static Rules'}`, M, 30);
-
-    y = headH + 14;
-
-    // Source line
-    doc.setFont(P.font, 'normal'); doc.setFontSize(8.5); doc.setTextColor(...P.dim);
-    const srcLines = wrapText(doc, `Source: ${result.source || 'pasted code'}`, W - M*2);
-    doc.text(srcLines, M, y);
-    y += srcLines.length * 4.2 + 6;
-
-    // Metrics row (3 boxes)
-    const boxW = (W - M*2 - 12) / 3;
-    const boxH = 22;
-    const metricData = [
-      { label: 'COMPLEXITY', value: result.complexity || '—', color: result.complexity === 'High' ? P.warn : result.complexity === 'Low' ? P.ok : P.accent },
-      { label: 'ISSUES FOUND', value: String(result.issues_found ?? 0), color: (result.issues_found||0) > 5 ? P.warn : P.ok },
-      { label: 'SCORE / 100', value: String(result.score ?? 0), color: (result.score||0) >= 80 ? P.ok : (result.score||0) >= 50 ? P.accent : P.err },
-    ];
-    metricData.forEach((m, i) => {
-      const bx = M + i * (boxW + 6);
+      // Sidebar background
       doc.setFillColor(...P.panel);
-      doc.setDrawColor(...P.border);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(bx, y, boxW, boxH, presetKey==='cyberpunk'?0:1.5, presetKey==='cyberpunk'?0:1.5, 'FD');
-      drawCorner(doc, bx, y, 4, P.cornerStyle, P.accent);
-      doc.setFont(P.titleFont, 'bold'); doc.setFontSize(15);
-      doc.setTextColor(...m.color);
-      doc.text(m.value, bx + boxW/2, y + 13, { align: 'center' });
-      doc.setFont(P.font, 'normal'); doc.setFontSize(6.5);
-      doc.setTextColor(...P.dim);
-      doc.text(m.label, bx + boxW/2, y + 19, { align: 'center' });
-    });
-    y += boxH + 12;
+      doc.rect(0, 30, sideW, H-30, 'F');
+      doc.setDrawColor(...P.accent); doc.setLineWidth(0.3);
+      doc.line(sideW, 30, sideW, H);
 
-    // Summary
-    doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
-    doc.line(M, y, W-M, y); y += 7;
-    doc.setFont(P.titleFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
-    doc.text(presetKey==='cyberpunk' ? '// SUMMARY' : 'Summary', M, y); y += 6;
-    doc.setFont(P.font, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
-    const sumLines = wrapText(doc, result.summary || 'No summary available.', W - M*2);
-    doc.text(sumLines, M, y);
-    y += sumLines.length * 4.6 + 8;
+      y = 40;
+      y = drawMetrics(doc, P, T, result, 8, y, sideW - 16, 24, true);
 
-    // Issues list
-    if (result.issues && result.issues.length) {
-      doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
-      doc.line(M, y, W-M, y); y += 7;
-      doc.setFont(P.titleFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
-      doc.text(presetKey==='cyberpunk' ? '// ISSUES DETECTED' : 'Issues Detected', M, y); y += 7;
+      // Sidebar footer note
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(6.5); doc.setTextColor(...P.dim);
+      const srcLines = wrapText(doc, `${T.source}: ${(result.source||T.sourcePlaceholder).slice(0,60)}`, sideW - 16);
+      doc.text(srcLines, 8, H - 16);
 
-      result.issues.forEach((iss, i) => {
-        if (y > H - 30) { doc.addPage(); doc.setFillColor(...P.bg); doc.rect(0,0,W,H,'F'); y = M; }
-        const col = iss.type === 'err' ? P.err : P.warn;
-        doc.setFillColor(...col);
-        doc.circle(M + 1.5, y - 1.3, 1.3, 'F');
-        doc.setFont(P.font, 'bold'); doc.setFontSize(8.5); doc.setTextColor(...col);
-        const lineTag = iss.line ? `[L${iss.line}] ` : '';
-        doc.text(`${lineTag}${iss.type === 'err' ? 'CRITICAL' : 'WARNING'}`, M + 5, y);
-        y += 4.6;
-        doc.setFont(P.font, 'normal'); doc.setFontSize(8.5); doc.setTextColor(...P.text);
-        const labelLines = wrapText(doc, iss.label, W - M*2 - 5);
-        doc.text(labelLines, M + 5, y);
-        y += labelLines.length * 4.2 + 4;
+      // Main content column
+      const cx = sideW + 10, cw = W - sideW - 10 - M;
+      y = 40;
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
+      doc.text(T.summaryTitleCyber, cx, y); y += 6;
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.text);
+      const sumLines = wrapText(doc, result.summary || '', cw);
+      doc.text(sumLines, cx, y); y += sumLines.length * 4.4 + 8;
+
+      doc.setDrawColor(...P.border); doc.line(cx, y, cx+cw, y); y += 7;
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
+      doc.text(T.issuesTitleCyber, cx, y); y += 7;
+
+      if (result.issues && result.issues.length) {
+        result.issues.forEach(iss => { y = drawIssueCard(doc, P, T, iss, cx, y, cw, H, 40); });
+      } else {
+        doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.ok);
+        doc.text(T.noIssues, cx, y);
+      }
+
+    } else if (P.layout === 'centered') {
+      /* ── MEDIEVAL: centered banner + centered metrics, wide margins ── */
+      const M2 = 24;
+      doc.setFillColor(...P.headerBg);
+      doc.rect(0, 0, W, 30, 'F');
+      doc.setDrawColor(...P.border); doc.setLineWidth(1);
+      doc.line(M2*0.5, 32, W-M2*0.5, 32);
+      doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(16);
+      doc.text(T.titles.medieval, W/2, 14, { align: 'center' });
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(...P.headerText);
+      doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}  ·  ${T.mode}: ${(result.mode||'auto').toUpperCase()}`, W/2, 22, { align: 'center' });
+
+      y = 42;
+      const metricsW = W - M2*2;
+      y = drawMetrics(doc, P, T, result, M2, y, metricsW, 22, false);
+      y += 12;
+
+      doc.setDrawColor(...P.border); doc.line(M2, y, W-M2, y); y += 8;
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(12); doc.setTextColor(...P.accent);
+      doc.text(T.summaryTitle, W/2, y, { align: 'center' }); y += 7;
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
+      const sumLines = wrapText(doc, result.summary || '', metricsW - 10);
+      doc.text(sumLines, W/2, y, { align: 'center' });
+      y += sumLines.length * 4.6 + 10;
+
+      doc.setDrawColor(...P.border); doc.line(M2, y, W-M2, y); y += 8;
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(12); doc.setTextColor(...P.accent);
+      doc.text(T.issuesTitle, W/2, y, { align: 'center' }); y += 8;
+
+      if (result.issues && result.issues.length) {
+        result.issues.forEach(iss => { y = drawIssueCard(doc, P, T, iss, M2, y, metricsW, H, M2); });
+      } else {
+        doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.ok);
+        doc.text(T.noIssues, W/2, y, { align: 'center' });
+      }
+
+    } else if (P.layout === 'scroll') {
+      /* ── SAMURAI: score badge top-right, metrics stacked left edge,
+                     content flows like a vertical scroll ── */
+      doc.setFillColor(...P.headerBg);
+      doc.rect(0, 0, W, 32, 'F');
+      doc.setDrawColor(...P.border); doc.setLineWidth(1.5);
+      doc.line(0, 32, W, 32);
+      doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(18);
+      doc.text(T.titles.samurai, M, 16);
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(...P.headerText);
+      doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}`, M, 24);
+      doc.text(`${T.mode}: ${(result.mode||'auto').toUpperCase()}  ·  ${T.engine}: ${result.usedAI ? T.engineAI : T.engineLocal}`, M, 29);
+
+      // Score badge, large, top-right corner
+      const scoreCol = (result.score||0) >= 80 ? P.ok : (result.score||0) >= 50 ? P.accent : P.err;
+      doc.setFillColor(...P.panel); doc.setDrawColor(...scoreCol); doc.setLineWidth(0.6);
+      doc.circle(W - 24, 16, 13, 'FD');
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(16); doc.setTextColor(...scoreCol);
+      doc.text(String(result.score ?? 0), W - 24, 19, { align: 'center' });
+
+      y = 42;
+      // Two slim metric chips (complexity + issues) stacked left, narrow
+      const chipW = 50, chipH = 14;
+      const chipData = [
+        { label: T.metricComplexity, value: result.complexity || '—', color: result.complexity === 'High' ? P.warn : result.complexity === 'Low' ? P.ok : P.accent },
+        { label: T.metricIssues, value: String(result.issues_found ?? 0), color: (result.issues_found||0) > 5 ? P.warn : P.ok },
+      ];
+      chipData.forEach((c, i) => {
+        const cx = M + i * (chipW + 6);
+        doc.setFillColor(...P.panel); doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
+        doc.rect(cx, y, chipW, chipH, 'FD');
+        drawCorner(doc, cx, y, 3.5, P.cornerStyle, P.accent);
+        doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...c.color);
+        doc.text(c.value, cx + 6, y + 9);
+        doc.setFont(baseFont, 'normal'); doc.setFontSize(6); doc.setTextColor(...P.dim);
+        doc.text(c.label, cx + chipW - 3, y + 9, { align: 'right', maxWidth: chipW - 9 });
       });
+      y += chipH + 10;
+
+      doc.setDrawColor(...P.border); doc.line(M, y, W-M, y); y += 7;
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
+      doc.text(T.summaryTitle, M, y); y += 6;
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.text);
+      const sumLines = wrapText(doc, result.summary || '', W - M*2);
+      doc.text(sumLines, M, y); y += sumLines.length * 4.4 + 8;
+
+      doc.setDrawColor(...P.border); doc.line(M, y, W-M, y); y += 7;
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
+      doc.text(T.issuesTitle, M, y); y += 7;
+
+      if (result.issues && result.issues.length) {
+        result.issues.forEach(iss => { y = drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M); });
+      } else {
+        doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.ok);
+        doc.text(T.noIssues, M, y);
+      }
+
+    } else {
+      /* ── OFFICE (default 'linear'): classic single-column report ── */
+      const headH = 34;
+      doc.setFillColor(...P.headerBg);
+      doc.rect(0, 0, W, headH, 'F');
+      doc.setTextColor(...P.headerText); doc.setFont(baseFont, 'bold'); doc.setFontSize(20);
+      doc.text(T.titles.office, M, 16);
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.headerText);
+      doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}  ·  OGUZOK AI AUDITOR`, M, 24);
+      doc.text(`${T.mode}: ${(result.mode||'auto').toUpperCase()}  ·  ${T.engine}: ${result.usedAI ? T.engineAI : T.engineLocal}`, M, 30);
+
+      y = headH + 12;
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(8.5); doc.setTextColor(...P.dim);
+      const srcLines = wrapText(doc, `${T.source}: ${result.source || T.sourcePlaceholder}`, W - M*2);
+      doc.text(srcLines, M, y);
+      y += srcLines.length * 4.2 + 6;
+
+      y = drawMetrics(doc, P, T, result, M, y, W - M*2, 22, false);
+      y += 12;
+
+      doc.setDrawColor(...P.border); doc.line(M, y, W-M, y); y += 7;
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
+      doc.text(T.summaryTitle, M, y); y += 6;
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
+      const sumLines = wrapText(doc, result.summary || '', W - M*2);
+      doc.text(sumLines, M, y); y += sumLines.length * 4.6 + 8;
+
+      doc.setDrawColor(...P.border); doc.line(M, y, W-M, y); y += 7;
+      doc.setFont(baseFont, 'bold'); doc.setFontSize(11); doc.setTextColor(...P.accent);
+      doc.text(T.issuesTitle, M, y); y += 7;
+
+      if (result.issues && result.issues.length) {
+        result.issues.forEach(iss => { y = drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M); });
+      } else {
+        doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.ok);
+        doc.text(T.noIssues, M, y);
+      }
     }
 
-    // Footer
-    const footY = H - 12;
-    doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
-    doc.line(M, footY - 5, W - M, footY - 5);
-    doc.setFont(P.font, 'normal'); doc.setFontSize(7.5); doc.setTextColor(...P.dim);
-    const footerMap = {
-      office: 'Generated by Oguzok AI Code Auditor — Confidential Report',
-      cyberpunk: '[ GENERATED_BY: OGUZOK.AI_AUDITOR v2.2 // END_OF_TRANSMISSION ]',
-      medieval: 'Sealed and certified by the Oguzok Code Inspectorate',
-      samurai: '此書はOguzok AIにより生成された — Generated by Oguzok AI',
-    };
-    doc.text(footerMap[presetKey] || footerMap.office, W/2, footY, { align: 'center' });
+    // Footer on every page
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      const footY = H - 12;
+      doc.setDrawColor(...P.border); doc.setLineWidth(0.3);
+      doc.line(M, footY - 5, W - M, footY - 5);
+      doc.setFont(baseFont, 'normal'); doc.setFontSize(7.3); doc.setTextColor(...P.dim);
+      doc.text(T.footers[presetKey] || T.footers.office, W/2, footY, { align: 'center' });
+      doc.text(`${p}/${pageCount}`, W - M, footY, { align: 'right' });
+    }
 
     return doc;
   }
@@ -2035,7 +2389,7 @@ addEventListener('click', e => {
     const result = window.__lastAuditResult;
     if (!result) return;
     if (!window.jspdf) {
-      alert('PDF library failed to load — check your connection and try again.');
+      alert(getLang()==='ru' ? 'Библиотека PDF не загрузилась — проверьте соединение и попробуйте снова.' : 'PDF library failed to load — check your connection and try again.');
       return;
     }
     try {
@@ -2044,7 +2398,7 @@ addEventListener('click', e => {
       doc.save(fname);
     } catch (e) {
       console.error('PDF generation failed:', e);
-      alert('Could not generate PDF: ' + e.message);
+      alert((getLang()==='ru' ? 'Не удалось создать PDF: ' : 'Could not generate PDF: ') + e.message);
     }
   });
 })();
@@ -2344,6 +2698,7 @@ addEventListener('mousemove',e=>{
 <!-- ══ Crystal Scanner — external module ══ -->
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="fonts-cyrillic.js"></script>
 <script type="module">
 /**
  * crystal-scanner.js — Gem Glass v6
