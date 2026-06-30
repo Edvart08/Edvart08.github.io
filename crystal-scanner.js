@@ -501,7 +501,11 @@ function init() {
   /* ── Post-processing ── */
   const composer=new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene,camera));
-  const bloom=new UnrealBloomPass(new THREE.Vector2(W,CANVAS_H),0.85,0.60,0.22);
+  // Bloom is the single most expensive GPU pass here. On mobile, render it
+  // at a much lower internal resolution — visually still reads as a glow,
+  // but costs a fraction of the GPU time.
+  const bloomRes = isNarrow ? new THREE.Vector2(W*0.5, CANVAS_H*0.5) : new THREE.Vector2(W,CANVAS_H);
+  const bloom=new UnrealBloomPass(bloomRes, isNarrow?0.65:0.85, 0.60, 0.22);
   composer.addPass(bloom);
 
   /* ── Interaction ── */
