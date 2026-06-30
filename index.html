@@ -253,6 +253,13 @@
     .auditor-head-sub { font-family:'Share Tech Mono',monospace;font-size:0.68rem;color:var(--dim);letter-spacing:2px;margin-top:3px; }
     .auditor-status { margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:0.65rem;letter-spacing:2px;color:var(--green);display:flex;align-items:center;gap:6px; }
     .auditor-status-dot { width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:dotPulse 2s infinite; }
+    .auditor-status-dot.warn { background:#ffbd4f;box-shadow:0 0 6px #ffbd4f; }
+    .auditor-status.warn { color:#ffbd4f; }
+    .auditor-ai-banner { display:none; align-items:center; gap:10px; padding:10px 14px; margin-top:10px; background:rgba(255,189,79,0.08); border:1px solid rgba(255,189,79,0.35); border-radius:8px; font-family:'Share Tech Mono',monospace; font-size:0.70rem; color:#ffbd4f; }
+    .auditor-ai-banner.visible { display:flex; }
+    .auditor-ai-banner-icon { font-size:1rem; flex-shrink:0; }
+    .auditor-ai-banner-retry { margin-left:auto; padding:5px 12px; background:rgba(255,189,79,0.10); border:1px solid rgba(255,189,79,0.5); border-radius:5px; color:#ffbd4f; font-family:'Orbitron',sans-serif; font-size:0.60rem; letter-spacing:1px; cursor:none; white-space:nowrap; transition:all .2s; }
+    .auditor-ai-banner-retry:hover { background:rgba(255,189,79,0.20); }
     .auditor-body { padding:28px;display:grid;grid-template-columns:1fr 1fr;gap:20px; }
     @media(max-width:900px){ .auditor-body{grid-template-columns:1fr;} }
     .auditor-input-col { display:flex;flex-direction:column;gap:14px; }
@@ -600,6 +607,11 @@
             <div class="btn-spinner"></div>
             <span class="btn-label" data-i18n="audit-run">RUN AUDIT</span>
           </button>
+          <div class="auditor-ai-banner" id="auditAiBanner">
+            <span class="auditor-ai-banner-icon">⚠</span>
+            <span data-i18n="audit-ai-offline">AI Engine Offline — showing basic local report</span>
+            <button class="auditor-ai-banner-retry" id="auditRetryBtn" data-i18n="audit-retry">↻ RETRY AI</button>
+          </div>
           <div class="auditor-metrics" id="auditMetrics">
             <div class="auditor-metric">
               <div class="auditor-metric-val" id="mComplexity">—</div>
@@ -777,6 +789,8 @@ const LANGS = {
     'audit-tip5':'Поддерживает Python, JavaScript, TypeScript и другие языки',
     'audit-pdf-label':'// ЭКСПОРТ ОТЧЁТА',
     'audit-pdf-btn':'⬇ СКАЧАТЬ PDF ОТЧЁТ',
+    'audit-ai-offline':'AI-движок недоступен — показан базовый локальный отчёт',
+    'audit-retry':'↻ ПОВТОРИТЬ ЗАПРОС К AI',
     roles:['Full-Stack разработчик','AI разработчик','Python инженер','Архитектор ботов'],
   },
   en: {
@@ -813,6 +827,8 @@ const LANGS = {
     'audit-tip5':'Supports Python, JavaScript, TypeScript and more',
     'audit-pdf-label':'// EXPORT REPORT',
     'audit-pdf-btn':'⬇ DOWNLOAD PDF REPORT',
+    'audit-ai-offline':'AI Engine Offline — showing basic local report',
+    'audit-retry':'↻ RETRY AI REQUEST',
     roles:['Full-Stack Developer','AI Developer','Python Engineer','Bot Architect'],
   }
 };
@@ -1585,7 +1601,7 @@ addEventListener('click', e => {
 (function(){
   // Cloudflare Worker proxy URL — replace after deploying cf-worker/worker.js
   // (see cf-worker/worker.js header comment for deploy steps)
-  const AUDIT_PROXY_URL = 'https://oguzok-auditor.YOUR-SUBDOMAIN.workers.dev';
+  const AUDIT_PROXY_URL = 'https://oguzok-auditor.davlatburnacev.workers.dev';
 
   const input   = document.getElementById('auditInput');
   const runBtn  = document.getElementById('auditRunBtn');
@@ -1767,41 +1783,48 @@ addEventListener('click', e => {
       score,
       issues,
       summary: issues.length === 0
-        ? (isRu ? 'Код выглядит чистым. Критических проблем не найдено.' : 'Code looks clean. No critical issues found.')
+        ? (isRu ? 'По базовым статическим правилам проблем не найдено. Это НЕ означает, что код полностью корректен — локальный анализатор проверяет лишь несколько известных шаблонов и не заменяет полноценный AI-разбор.' : 'No issues found by basic static rules. This does NOT mean the code is fully correct — the local analyzer only checks a handful of known patterns and is not a substitute for full AI analysis.')
         : (isRu ? `Найдено проблем: ${issues.length}. Локальный анализатор использует базовые статические правила — для более глубокого разбора подключите AI-движок.` : `Found ${issues.length} issue${issues.length>1?'s':''}. Local analyzer uses basic static rules — connect the AI engine for deeper analysis.`),
     };
   }
 
 
-  runBtn.addEventListener('click', async () => {
-    const raw = input.value.trim();
-    if (!raw) { input.focus(); input.style.borderColor='var(--pink)'; setTimeout(()=>input.style.borderColor='',800); return; }
+  const aiBanner   = document.getElementById('auditAiBanner');
+  const retryBtn   = document.getElementById('auditRetryBtn');
+  const statusDot  = document.querySelector('.auditor-status-dot');
+  const statusWrap = document.querySelector('.auditor-status');
 
+  let lastCode = null; // remembers the resolved code (post GitHub-fetch) for retry
+
+  function setOfflineUI(isOffline) {
+    if (aiBanner) aiBanner.classList.toggle('visible', isOffline);
+    if (statusDot) statusDot.classList.toggle('warn', isOffline);
+    if (statusWrap) statusWrap.classList.toggle('warn', isOffline);
+  }
+
+  // Shared analysis routine — used both by the main RUN AUDIT click and by
+  // the "Retry AI" button.
+  // - skipInitLog: true when the caller already printed its own intro lines
+  //   (main click does this after the GitHub-fetch step)
+  // - isRetryCall: true only for the dedicated Retry AI button, purely to
+  //   print a distinct "retrying" message
+  async function runAnalysis(code, sourceLabel, skipInitLog, isRetryCall) {
     runBtn.classList.add('loading'); runBtn.disabled = true;
+    if (retryBtn) retryBtn.disabled = true;
     metrics.classList.remove('visible');
     const pdfBtnReset = document.getElementById('pdfExportBtn');
     if (pdfBtnReset) pdfBtnReset.disabled = true;
     statusTxt.textContent = 'SCANNING...';
-    clearLog();
-
-    logLine('<span class="a-cyan">> AUDIT ENGINE v2.2 — initializing</span>', 0);
-    logLine(`<span class="a-dim">> mode: ${activeMode.toUpperCase()}</span>`, 300);
+    setOfflineUI(false);
+    if (isRetryCall) {
+      logLine('<span class="a-cyan">> Retrying AI request...</span>', 0);
+    } else if (!skipInitLog) {
+      clearLog();
+      logLine('<span class="a-cyan">> AUDIT ENGINE v2.2 — initializing</span>', 0);
+      logLine(`<span class="a-dim">> mode: ${activeMode.toUpperCase()}</span>`, 300);
+    }
 
     try {
-      let code = raw;
-      const isGithub = /github\.com/.test(raw);
-
-      if (isGithub) {
-        logLine('<span class="a-dim">> GitHub URL detected — fetching content...</span>', 500);
-        const fetched = await fetchGithubContent(raw);
-        if (fetched) {
-          code = fetched;
-          logLine(`<span class="a-grn">> ✓ Fetched ${code.split('\n').length} lines</span>`, 200);
-        } else {
-          logLine('<span class="a-warn">> Could not fetch file — analyzing URL as identifier</span>', 200);
-        }
-      }
-
       logLine('<span class="a-dim">> Sending to Groq LLaMA-3.3-70B...</span>', 400);
 
       let result, usedAI = false;
@@ -1812,6 +1835,7 @@ addEventListener('click', e => {
       } catch (e) {
         logLine(`<span class="a-warn">> AI engine unavailable (${e.message}) — running local static analysis</span>`, 200);
         result = localAnalyze(code);
+        setOfflineUI(true);
       }
 
       // Display results
@@ -1836,20 +1860,63 @@ addEventListener('click', e => {
       logLine('<span class="a-grn">> AUDIT COMPLETE ✓</span>', 100);
 
       setMetrics(result.complexity, result.issues_found ?? 0, scoreNum);
-      statusTxt.textContent = LANGS[window.currentLang||'ru']['audit-status'] || 'ENGINE READY';
+      statusTxt.textContent = usedAI
+        ? (LANGS[window.currentLang||'ru']['audit-status'] || 'ENGINE READY')
+        : (window.currentLang === 'en' ? 'AI OFFLINE' : 'AI НЕДОСТУПЕН');
 
       // Save the result for PDF export and unlock the export button
-      window.__lastAuditResult = { ...result, score: scoreNum, mode: activeMode, usedAI, source: raw };
+      window.__lastAuditResult = { ...result, score: scoreNum, mode: activeMode, usedAI, source: sourceLabel };
       const pdfBtn = document.getElementById('pdfExportBtn');
       if (pdfBtn) pdfBtn.disabled = false;
+      lastCode = code;
 
     } catch (err) {
       logLine(`<span class="a-err">> ERROR: ${err.message}</span>`, 300);
       statusTxt.textContent = 'ERROR';
     } finally {
       runBtn.classList.remove('loading'); runBtn.disabled = false;
+      if (retryBtn) retryBtn.disabled = false;
     }
+  }
+
+  runBtn.addEventListener('click', async () => {
+    const raw = input.value.trim();
+    if (!raw) { input.focus(); input.style.borderColor='var(--pink)'; setTimeout(()=>input.style.borderColor='',800); return; }
+
+    let code = raw;
+    const isGithub = /github\.com/.test(raw);
+
+    clearLog();
+    logLine('<span class="a-cyan">> AUDIT ENGINE v2.2 — initializing</span>', 0);
+    logLine(`<span class="a-dim">> mode: ${activeMode.toUpperCase()}</span>`, 300);
+
+    if (isGithub) {
+      logLine('<span class="a-dim">> GitHub URL detected — fetching content...</span>', 500);
+      try {
+        const fetched = await fetchGithubContent(raw);
+        if (fetched) {
+          code = fetched;
+          logLine(`<span class="a-grn">> ✓ Fetched ${code.split('\n').length} lines</span>`, 200);
+        } else {
+          logLine('<span class="a-warn">> Could not fetch file — analyzing URL as identifier</span>', 200);
+        }
+      } catch (e) {
+        logLine(`<span class="a-warn">> GitHub fetch failed (${e.message})</span>`, 200);
+      }
+    }
+
+    // runAnalysis handles its own loading state / log lines from here on
+    await runAnalysis(code, raw, true /* skipInitLog: already logged above */, false);
   });
+
+  // Retry button — re-sends the SAME already-resolved code to the AI engine
+  // without re-fetching GitHub or re-running the whole pipeline.
+  if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+      if (!lastCode) return;
+      runAnalysis(lastCode, input.value.trim(), false, true /* isRetryCall */);
+    });
+  }
 
   // Also trigger on Enter in input
   input.addEventListener('keydown', e => { if (e.key === 'Enter') runBtn.click(); });
@@ -1887,6 +1954,9 @@ addEventListener('click', e => {
       engine: 'Движок',
       engineAI: 'Groq LLaMA-3.3-70B',
       engineLocal: 'Локальные статические правила',
+      modeBannerLocal: 'РЕЖИМ АНАЛИЗА: СТАТИЧЕСКИЕ ПРАВИЛА (AI OFFLINE)',
+      modeBannerLocalSub: 'ИИ-движок был недоступен на момент анализа. Этот отчёт основан на базовых regex-проверках, а не на глубоком разборе нейросетью — результаты могут быть менее полными.',
+      modeBannerAI: 'РЕЖИМ АНАЛИЗА: AI (GROQ LLAMA-3.3-70B)',
       mode: 'Режим',
       source: 'Источник',
       sourcePlaceholder: 'вставленный код',
@@ -1921,6 +1991,9 @@ addEventListener('click', e => {
       engine: 'Engine',
       engineAI: 'Groq LLaMA-3.3-70B',
       engineLocal: 'Local Static Rules',
+      modeBannerLocal: 'ANALYSIS MODE: STATIC RULES (AI OFFLINE)',
+      modeBannerLocalSub: 'The AI engine was unreachable at analysis time. This report is based on basic regex checks, not deep neural analysis — results may be less complete.',
+      modeBannerAI: 'ANALYSIS MODE: AI (GROQ LLAMA-3.3-70B)',
       mode: 'Mode',
       source: 'Source',
       sourcePlaceholder: 'pasted code',
@@ -1995,20 +2068,22 @@ addEventListener('click', e => {
      3) FONT REGISTRATION — embed Roboto (Cyrillic-capable) into
         jsPDF's virtual filesystem once, reused across exports.
   ───────────────────────────────────────────────────────────── */
-  let fontsRegistered = false;
+  /* Each `new jsPDF()` call creates a brand-new document with its OWN
+     virtual filesystem — fonts must be registered on every instance,
+     not just once globally. (The earlier version cached a "registered"
+     flag across documents, which crashed every preset after the first.) */
   function registerCyrillicFont(doc) {
-    if (fontsRegistered) {
+    if (!window.__ROBOTO_REGULAR_B64 || !window.__ROBOTO_BOLD_B64) return false;
+    try {
+      doc.addFileToVFS('Roboto-Regular.ttf', window.__ROBOTO_REGULAR_B64);
+      doc.addFileToVFS('Roboto-Bold.ttf', window.__ROBOTO_BOLD_B64);
       doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
       doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
       return true;
+    } catch (e) {
+      console.warn('Cyrillic font registration failed, falling back to Helvetica:', e);
+      return false;
     }
-    if (!window.__ROBOTO_REGULAR_B64 || !window.__ROBOTO_BOLD_B64) return false;
-    doc.addFileToVFS('Roboto-Regular.ttf', window.__ROBOTO_REGULAR_B64);
-    doc.addFileToVFS('Roboto-Bold.ttf', window.__ROBOTO_BOLD_B64);
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-    doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
-    fontsRegistered = true;
-    return true;
   }
 
   function wrapText(doc, text, maxWidth) {
@@ -2169,6 +2244,23 @@ addEventListener('click', e => {
        - samurai:   vertical "scroll" feel — score badge pinned
                      top-right, metrics stacked down the left edge
   ───────────────────────────────────────────────────────────── */
+  // Bold warning banner shown when the report was generated WITHOUT the AI
+  // engine — makes it impossible to mistake a thin local-rules report for
+  // a full AI analysis.
+  function drawModeBanner(doc, P, T, result, x, y, width, baseFont) {
+    if (result.usedAI) return y; // AI worked — no warning needed, header engine line is enough
+    const bannerH = 16;
+    doc.setFillColor(P.warn[0], P.warn[1], P.warn[2]);
+    doc.roundedRect(x, y, width, bannerH, 1.5, 1.5, 'F');
+    doc.setFont(baseFont, 'bold'); doc.setFontSize(9.5);
+    doc.setTextColor(20, 16, 10);
+    doc.text('⚠ ' + T.modeBannerLocal, x + 4, y + 6);
+    doc.setFont(baseFont, 'normal'); doc.setFontSize(7);
+    const subLines = wrapText(doc, T.modeBannerLocalSub, width - 8);
+    doc.text(subLines.slice(0,2), x + 4, y + 11);
+    return y + bannerH + 6;
+  }
+
   function generatePDF(result, presetKey) {
     const P = PRESETS[presetKey] || PRESETS.office;
     const T = REPORT_I18N[getLang()];
@@ -2221,6 +2313,7 @@ addEventListener('click', e => {
       // Main content column
       const cx = sideW + 10, cw = W - sideW - 10 - M;
       y = 40;
+      y = drawModeBanner(doc, P, T, result, cx, y, cw, baseFont);
       doc.setFont(baseFont, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...P.accent);
       doc.text(T.summaryTitleCyber, cx, y); y += 6;
       doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.text);
@@ -2252,6 +2345,7 @@ addEventListener('click', e => {
 
       y = 42;
       const metricsW = W - M2*2;
+      y = drawModeBanner(doc, P, T, result, M2, y, metricsW, baseFont);
       y = drawMetrics(doc, P, T, result, M2, y, metricsW, 22, false);
       y += 12;
 
@@ -2295,6 +2389,7 @@ addEventListener('click', e => {
       doc.text(String(result.score ?? 0), W - 24, 19, { align: 'center' });
 
       y = 42;
+      y = drawModeBanner(doc, P, T, result, M, y, W - M*2, baseFont);
       // Two slim metric chips (complexity + issues) stacked left, narrow
       const chipW = 50, chipH = 14;
       const chipData = [
@@ -2348,6 +2443,7 @@ addEventListener('click', e => {
       doc.text(srcLines, M, y);
       y += srcLines.length * 4.2 + 6;
 
+      y = drawModeBanner(doc, P, T, result, M, y, W - M*2, baseFont);
       y = drawMetrics(doc, P, T, result, M, y, W - M*2, 22, false);
       y += 12;
 
