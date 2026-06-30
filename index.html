@@ -35,6 +35,25 @@
     html { scroll-behavior: smooth; }
     body { font-family: 'Rajdhani', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; cursor: none; }
 
+    /* ── Custom themed scrollbar ── */
+    html { scrollbar-width: thin; scrollbar-color: var(--cyan) rgba(0,245,255,0.05); }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track {
+      background: linear-gradient(180deg, rgba(0,245,255,0.02), rgba(191,95,255,0.02));
+      border-left: 1px solid rgba(0,245,255,0.08);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, var(--cyan), var(--purple));
+      border-radius: 6px;
+      border: 2px solid var(--bg);
+      box-shadow: 0 0 8px rgba(0,245,255,0.5), inset 0 0 4px rgba(255,255,255,0.2);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #44ffff, #d68fff);
+      box-shadow: 0 0 14px rgba(0,245,255,0.8), inset 0 0 6px rgba(255,255,255,0.35);
+    }
+    ::-webkit-scrollbar-corner { background: var(--bg); }
+
     /* ── Loader ── */
     #loader {
       position: fixed; inset: 0; z-index: 9000; background: var(--bg);
@@ -282,8 +301,8 @@
       width: clamp(320px, 42vw, 600px); aspect-ratio: 1;
       pointer-events: auto; z-index: 2; cursor: crosshair;
       /* radial mask so glow fades naturally at edges — no hard square cutoff */
-      -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 55%, transparent 100%);
-      mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 55%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 70%, transparent 100%);
+      mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 70%, transparent 100%);
     }
     #heroGlobe { width: 100%; height: 100%; display: block; }
     @media(max-width:900px){ .hero-visual { display: none; } }
@@ -811,6 +830,23 @@ let W, H, mouseX = -9999, mouseY = -9999;
 const rsz = () => { W = canvas.width = innerWidth; H = canvas.height = innerHeight; };
 rsz(); addEventListener('resize', rsz);
 addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+// Click anywhere on background → blast nearby particles outward
+addEventListener('click', e => {
+  // Skip if click landed on an interactive element (button, link, card, hero-visual, etc.)
+  if (e.target.closest('a,button,.nav-logo,.hero-visual,.project-card,.skill-card,.contact-card,.auditor-wrap,input,.lang-btn')) return;
+  const cx = e.clientX, cy = e.clientY;
+  const BLAST_R = 220, BLAST_F = 9;
+  PS.forEach(p => {
+    const dx = p.x - cx, dy = p.y - cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < BLAST_R && dist > 0.01) {
+      const force = (1 - dist / BLAST_R) * BLAST_F;
+      p.vx += (dx / dist) * force;
+      p.vy += (dy / dist) * force;
+      p.boostT = 60; // ~1s of relaxed speed cap so the blast is visible
+    }
+  });
+});
 
 // Node types: regular particles + data packets that move along connections
 class Node {
@@ -823,6 +859,7 @@ class Node {
     this.pulse = Math.random() * Math.PI * 2;
     this.driftAngle = Math.random() * Math.PI * 2;
     this.driftSpeed = 0.002 + Math.random() * 0.003;
+    this.boostT = 0; // frames remaining of "click blast" speed boost
   }
   reset(fixed) {
     this.x  = fixed ? Math.random() * innerWidth  : Math.random() * W;
@@ -845,23 +882,29 @@ class Node {
       this.vx += (dx / dist) * force;
       this.vy += (dy / dist) * force;
     }
+    // Speed cap — relaxed while boosted (click blast), so the burst is visible
+    if (this.boostT > 0) this.boostT -= dt;
+    const cap = this.boostT > 0 ? 6.5 : 0.7;
     const spd = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
-    if (spd > 0.7) { this.vx = this.vx/spd*0.7; this.vy = this.vy/spd*0.7; }
-    this.vx *= 0.992; this.vy *= 0.992;
+    if (spd > cap) { this.vx = this.vx/spd*cap; this.vy = this.vy/spd*cap; }
+    this.vx *= this.boostT > 0 ? 0.95 : 0.992;
+    this.vy *= this.boostT > 0 ? 0.95 : 0.992;
     this.x += this.vx * dt; this.y += this.vy * dt;
     const margin = 50;
     if (this.x < margin)     this.vx += (margin - this.x) * 0.05;
     if (this.x > W - margin) this.vx -= (this.x - (W - margin)) * 0.05;
     if (this.y < margin)     this.vy += (margin - this.y) * 0.05;
     if (this.y > H - margin) this.vy -= (this.y - (H - margin)) * 0.05;
-    // Anchor nodes drift back toward center zone
+    // Anchor nodes: gentle continuous pull toward center (no hard threshold —
+    // avoids creating a visible ring where the force suddenly kicks in)
     if (this.anchor) {
       const cdx = W/2 - this.x, cdy = H/2 - this.y;
-      const cdist = Math.sqrt(cdx*cdx + cdy*cdy);
-      if (cdist > Math.min(W,H) * 0.28) {
-        this.vx += cdx / cdist * 0.04;
-        this.vy += cdy / cdist * 0.04;
-      }
+      const cdist = Math.sqrt(cdx*cdx + cdy*cdy) || 1;
+      const maxR = Math.min(W,H) * 0.42;
+      // Force ramps up smoothly with distance — strongest pull far away, ~0 near center
+      const pull = Math.min(1, cdist / maxR) * 0.025;
+      this.vx += (cdx / cdist) * pull;
+      this.vy += (cdy / cdist) * pull;
     }
     if (this.x < -200 || this.x > W+200 || this.y < -200 || this.y > H+200) {
       this.x = W*0.25 + Math.random()*W*0.5;
@@ -991,15 +1034,27 @@ function startGlitchEngine(el) {
   if (!gc) return;
   const gctx = gc.getContext('2d');
 
+  let textCenterX = 0; // center of the actual visible text within canvas
+
   function syncSize() {
     const r  = el.getBoundingClientRect();
     const pr = el.parentElement.getBoundingClientRect();
-    gc.width  = r.width + 100;
+    const PAD = 60;
+    gc.width  = r.width + PAD * 2;
     gc.height = r.height + 60;
-    gc.style.left   = (r.left - pr.left - 50) + 'px';
+    gc.style.left   = (r.left - pr.left - PAD) + 'px';
     gc.style.top    = (r.top  - pr.top  - 30) + 'px';
     gc.style.width  = gc.width  + 'px';
     gc.style.height = gc.height + 'px';
+
+    // Measure actual rendered text width with the SAME font as canvas will use,
+    // then compute where its center falls within the padded canvas.
+    const fontSize = parseFloat(getComputedStyle(el).fontSize);
+    gctx.font = `900 ${fontSize}px 'Orbitron', sans-serif`;
+    const textW = gctx.measureText('OGUZOK').width;
+    // hero-name is left-aligned, text starts at x=0 of the element (left edge)
+    // In canvas coords, element's left edge sits at PAD from canvas left
+    textCenterX = PAD + textW / 2;
   }
   syncSize();
   window.addEventListener('resize', syncSize);
@@ -1025,7 +1080,7 @@ function startGlitchEngine(el) {
       gc.style.opacity = '1';
 
       const W = gc.width, H = gc.height;
-      const cx = W / 2, cy = H / 2;
+      const cx = textCenterX, cy = H / 2;
       const intensity = Math.sin((elapsed / duration) * Math.PI);
 
       const elStyle = getComputedStyle(el);
@@ -1390,7 +1445,7 @@ function triggerMatrix(dur) {
     clearInterval(inv);
     // Continue drawing but fading — use requestAnimationFrame fade
     let opacity = 1;
-    const fadeDuration = 4500; // 4.5s fade
+    const fadeDuration = 1800; // faster, still smooth fade-out
     const fadeStart = performance.now();
     (function fadeStep(now) {
       opacity = 1 - (now - fadeStart) / fadeDuration;
@@ -1730,19 +1785,19 @@ addEventListener('click', e => {
 
   // ── Node definitions ──
   const NODES = [
-    { label:'GPT-4o',  x:.50, y:.22, r:18, c:'0,245,255',  hot:true,  desc:'OpenAI API' },
-    { label:'Python',  x:.18, y:.38, r:15, c:'0,245,255',  hot:false, desc:'Backend' },
-    { label:'FastAPI', x:.82, y:.35, r:14, c:'0,245,255',  hot:false, desc:'REST API' },
+    { label:'GPT-4o',  x:.50, y:.28, r:18, c:'0,245,255',  hot:true,  desc:'OpenAI API' },
+    { label:'Python',  x:.24, y:.40, r:15, c:'0,245,255',  hot:false, desc:'Backend' },
+    { label:'FastAPI', x:.76, y:.38, r:14, c:'0,245,255',  hot:false, desc:'REST API' },
     { label:'LLM',     x:.50, y:.50, r:22, c:'191,95,255', hot:true,  desc:'Core Engine' },
-    { label:'Groq',    x:.22, y:.62, r:13, c:'191,95,255', hot:false, desc:'Inference' },
-    { label:'Redis',   x:.78, y:.60, r:12, c:'0,255,136',  hot:false, desc:'Cache' },
-    { label:'Agents',  x:.50, y:.78, r:16, c:'191,95,255', hot:true,  desc:'AI Agents' },
-    { label:'Docker',  x:.15, y:.78, r:11, c:'0,245,255',  hot:false, desc:'DevOps' },
-    { label:'React',   x:.84, y:.76, r:11, c:'0,245,255',  hot:false, desc:'Frontend' },
-    { label:'NLP',     x:.34, y:.30, r:12, c:'0,255,136',  hot:false, desc:'Processing' },
-    { label:'CV2',     x:.66, y:.30, r:11, c:'0,255,136',  hot:false, desc:'Vision' },
-    { label:'Aiogram', x:.35, y:.68, r:12, c:'191,95,255', hot:false, desc:'Telegram' },
-    { label:'TG Bot',  x:.65, y:.68, r:12, c:'191,95,255', hot:false, desc:'Deployment' },
+    { label:'Groq',    x:.28, y:.60, r:13, c:'191,95,255', hot:false, desc:'Inference' },
+    { label:'Redis',   x:.74, y:.58, r:12, c:'0,255,136',  hot:false, desc:'Cache' },
+    { label:'Agents',  x:.50, y:.72, r:16, c:'191,95,255', hot:true,  desc:'AI Agents' },
+    { label:'Docker',  x:.22, y:.72, r:11, c:'0,245,255',  hot:false, desc:'DevOps' },
+    { label:'React',   x:.78, y:.70, r:11, c:'0,245,255',  hot:false, desc:'Frontend' },
+    { label:'NLP',     x:.38, y:.34, r:12, c:'0,255,136',  hot:false, desc:'Processing' },
+    { label:'CV2',     x:.62, y:.34, r:11, c:'0,255,136',  hot:false, desc:'Vision' },
+    { label:'Aiogram', x:.38, y:.65, r:12, c:'191,95,255', hot:false, desc:'Telegram' },
+    { label:'TG Bot',  x:.62, y:.65, r:12, c:'191,95,255', hot:false, desc:'Deployment' },
   ];
 
   // ── Edges (index pairs) ──
