@@ -2324,109 +2324,79 @@ addEventListener('click', e => {
   }
 
   /* ─────────────────────────────────────────────────────────────
-     7) THEMATIC BACKGROUND TEXTURES & EMBLEMS
-        Drawn procedurally (no external image files needed) — subtle,
-        low-opacity full-page textures + a small decorative emblem
-        in the header area for each style.
+     7) THEMATIC BACKGROUND IMAGES
+        Each non-office style loads a real background image from this
+        same GitHub repo (no procedural drawing — just a clean photo
+        behind the report). Drop the three files below into the repo
+        root (same folder as index.html) with these exact names:
+
+          medieval-bg.jpg   — parchment / old paper texture
+          cyberpunk-bg.jpg  — glitch / neon / digital texture
+          samurai-bg.jpg    — katana / samurai mask / japanese texture
+
+        Office intentionally has no background image (clean look).
+        If a file is missing or fails to load, that style silently
+        falls back to its flat background color — nothing breaks.
   ───────────────────────────────────────────────────────────── */
-  function drawThemeBackground(doc, P, presetKey, W, H) {
-    if (presetKey === 'medieval') {
-      // "Crumpled parchment" — irregular mottled blotches + faint fold lines
-      let seed = 1337;
-      const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-      doc.setFillColor(P.border[0], P.border[1], P.border[2]);
-      for (let i = 0; i < 55; i++) {
-        const x = rnd() * W, y = rnd() * H, r = 4 + rnd() * 14;
-        doc.saveGraphicsState && doc.saveGraphicsState();
-        try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.035 + rnd()*0.03 })); } catch(_) {}
-        doc.ellipse(x, y, r, r * (0.5 + rnd()*0.5), 'F');
-        doc.restoreGraphicsState && doc.restoreGraphicsState();
-      }
-      // Faint fold creases
-      doc.setDrawColor(P.border[0], P.border[1], P.border[2]);
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.10 })); } catch(_) {}
-      doc.setLineWidth(0.3);
-      [[0.15,0,0.25,1],[0.7,0,0.55,1],[0,0.4,1,0.55]].forEach(([x1,y1,x2,y2]) => {
-        doc.line(x1*W, y1*H, x2*W, y2*H);
-      });
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
+  const THEME_BG_FILES = {
+    medieval:  'medieval-bg.jpg',
+    cyberpunk: 'cyberpunk-bg.jpg',
+    samurai:   'samurai-bg.jpg',
+  };
 
-    } else if (presetKey === 'cyberpunk') {
-      // Faint scanline grid + corner glitch bars
-      doc.setDrawColor(P.accent[0], P.accent[1], P.accent[2]);
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.05 })); } catch(_) {}
-      doc.setLineWidth(0.15);
-      for (let y = 0; y < H; y += 3) doc.line(0, y, W, y);
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.12 })); } catch(_) {}
-      // Glitch-bar accents scattered down the right edge
-      let seed = 77;
-      const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-      for (let i = 0; i < 10; i++) {
-        const y = rnd() * H, w = 4 + rnd()*14, h = 0.6 + rnd()*1.4;
-        doc.setFillColor(P.accent[0], P.accent[1], P.accent[2]);
-        doc.rect(W - w, y, w, h, 'F');
-      }
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
+  // Cache loaded images (as data URLs) so we only fetch each file once
+  // per page session, even across multiple PDF generations.
+  const bgImageCache = {};
 
-    } else if (presetKey === 'samurai') {
-      // Faint concentric "enso" circle + bamboo-stripe texture along the left
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.05 })); } catch(_) {}
-      doc.setDrawColor(P.border[0], P.border[1], P.border[2]);
-      doc.setLineWidth(0.6);
-      doc.circle(W*0.82, H*0.78, 38, 'S');
-      doc.setLineWidth(2.2);
-      doc.circle(W*0.82, H*0.78, 38, 'S');
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.04 })); } catch(_) {}
-      doc.setFillColor(P.border[0], P.border[1], P.border[2]);
-      for (let x = 4; x < 14; x += 3) doc.rect(x, 0, 1.2, H, 'F');
-      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
-    }
-    // office: intentionally left clean — no texture, matches the brief
+  function loadImageAsDataURL(path) {
+    if (bgImageCache[path] !== undefined) return Promise.resolve(bgImageCache[path]);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          bgImageCache[path] = dataUrl;
+          resolve(dataUrl);
+        } catch (e) {
+          bgImageCache[path] = null;
+          resolve(null);
+        }
+      };
+      img.onerror = () => { bgImageCache[path] = null; resolve(null); };
+      img.src = path;
+    });
   }
 
-  // Small vector emblem drawn in the header, themed per style.
-  // Office gets none (clean professional look); the other three get a
-  // simple iconographic mark standing in for "sword / glitch / katana"
-  // since we can't embed external bitmap art in this client-only setup.
-  function drawThemeEmblem(doc, P, presetKey, cx, cy, scale) {
-    doc.setDrawColor(...P.headerText);
-    doc.setFillColor(...P.headerText);
+  // Preload all three background images as soon as the page loads, so
+  // they're already cached by the time the user clicks "download PDF"
+  // (avoids a visible delay on first export).
+  Object.values(THEME_BG_FILES).forEach(path => { loadImageAsDataURL(path); });
 
-    if (presetKey === 'cyberpunk') {
-      // Stylized glitch/circuit mark: bracket + slash
-      doc.setLineWidth(0.8 * scale);
-      doc.line(cx-6*scale, cy-5*scale, cx-2*scale, cy-5*scale);
-      doc.line(cx-6*scale, cy-5*scale, cx-6*scale, cy+5*scale);
-      doc.line(cx-6*scale, cy+5*scale, cx-2*scale, cy+5*scale);
-      doc.line(cx+2*scale, cy-5*scale, cx+6*scale, cy-5*scale);
-      doc.line(cx+6*scale, cy-5*scale, cx+6*scale, cy+5*scale);
-      doc.line(cx+6*scale, cy+5*scale, cx+2*scale, cy+5*scale);
-      doc.setLineWidth(1.1 * scale);
-      doc.line(cx-2.5*scale, cy+4*scale, cx+2.5*scale, cy-4*scale);
-
-    } else if (presetKey === 'medieval') {
-      // Stylized shield outline
-      doc.setLineWidth(0.7 * scale);
-      const s = scale * 1.3;
-      doc.lines([
-        [3*s, 0], [3*s, 5*s], [0, 9*s], [-3*s, 5*s], [-3*s, 0], [0, -3*s],
-      ], cx-0, cy-6*s, [1,1], 'S', true);
-      doc.setLineWidth(0.4 * scale);
-      doc.line(cx, cy-6*s, cx, cy+3*s);
-
-    } else if (presetKey === 'samurai') {
-      // Stylized katana silhouette: blade line + small guard + handle
-      doc.setLineWidth(1.0 * scale);
-      doc.line(cx-7*scale, cy+5*scale, cx+6*scale, cy-6*scale); // blade
-      doc.setLineWidth(2.0 * scale);
-      doc.line(cx-1.5*scale, cy-0.5*scale, cx+1.5*scale, cy-3.5*scale); // guard (tsuba), thicker short segment
-      doc.setLineWidth(1.4 * scale);
-      doc.setDrawColor(...P.border);
-      doc.line(cx-7*scale, cy+5*scale, cx-10*scale, cy+8*scale); // handle
+  async function drawThemeBackgroundImage(doc, presetKey, W, H) {
+    const file = THEME_BG_FILES[presetKey];
+    if (!file) return; // office — no background image by design
+    const dataUrl = await loadImageAsDataURL(file);
+    if (!dataUrl) return; // file missing/failed — flat color background remains
+    try {
+      doc.addImage(dataUrl, 'JPEG', 0, 0, W, H, undefined, 'FAST');
+      // Slight dark overlay so report text stays readable over any photo,
+      // regardless of how bright the source image is.
+      doc.setFillColor(0, 0, 0);
+      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 0.40 })); } catch(_) {}
+      doc.rect(0, 0, W, H, 'F');
+      try { doc.setGState && doc.setGState(new doc.GState({ opacity: 1 })); } catch(_) {}
+    } catch (e) {
+      console.warn('Failed to draw background image for', presetKey, e);
     }
   }
 
-  function generatePDF(result, presetKey) {
+  async function generatePDF(result, presetKey) {
     const P = PRESETS[presetKey] || PRESETS.office;
     const T = REPORT_I18N[getLang()];
     const { jsPDF } = window.jspdf;
@@ -2445,7 +2415,7 @@ addEventListener('click', e => {
 
     doc.setFillColor(...P.bg);
     doc.rect(0, 0, W, H, 'F');
-    drawThemeBackground(doc, P, presetKey, W, H);
+    await drawThemeBackgroundImage(doc, presetKey, W, H);
 
     let y;
 
@@ -2461,7 +2431,6 @@ addEventListener('click', e => {
       doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(...P.headerText);
       doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}`, M, 21);
       doc.text(`${T.mode}: ${(result.mode||'auto').toUpperCase()}  ·  ${T.engine}: ${result.usedAI ? T.engineAI : T.engineLocal}`, M, 26);
-      drawThemeEmblem(doc, P, 'cyberpunk', W - M - 8, 15, 1.0);
 
       // Sidebar background
       doc.setFillColor(...P.panel);
@@ -2516,7 +2485,6 @@ addEventListener('click', e => {
       doc.text(T.titles.medieval, W/2, 14, { align: 'center' });
       doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(...P.headerText);
       doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}  ·  ${T.mode}: ${(result.mode||'auto').toUpperCase()}`, W/2, 22, { align: 'center' });
-      drawThemeEmblem(doc, P, 'medieval', W - M2 - 6, 15, 0.85);
 
       y = 42;
       const metricsW = W - M2*2;
@@ -2555,7 +2523,6 @@ addEventListener('click', e => {
       doc.setFont(baseFont, 'normal'); doc.setFontSize(8); doc.setTextColor(...P.headerText);
       doc.text(`${T.meta}: ${new Date().toLocaleString(getLang()==='en'?'en-US':'ru-RU')}`, M, 24);
       doc.text(`${T.mode}: ${(result.mode||'auto').toUpperCase()}  ·  ${T.engine}: ${result.usedAI ? T.engineAI : T.engineLocal}`, M, 29);
-      drawThemeEmblem(doc, P, 'samurai', W - 60, 16, 0.75);
 
       // Score badge, large, top-right corner
       const scoreCol = (result.score||0) >= 80 ? P.ok : (result.score||0) >= 50 ? P.accent : P.err;
@@ -2704,14 +2671,17 @@ addEventListener('click', e => {
 
     try {
       const result = await fetchStylizedResult(activePreset);
-      const doc = generatePDF(result, activePreset);
+      const doc = await generatePDF(result, activePreset);
       const fname = `code-audit-${activePreset}-${Date.now()}.pdf`;
       doc.save(fname);
     } catch (e) {
-      console.error('PDF generation failed:', e);
-      // Fall back to the original (un-stylized) result rather than failing outright
+      console.error('Stylized PDF generation failed, falling back to base result:', e);
+      const warnMsg = getLang()==='ru'
+        ? `Не удалось получить стилизованный текст (${e.message}). Сохранён обычный отчёт.`
+        : `Could not get stylized text (${e.message}). Saved the standard report instead.`;
+      alert(warnMsg);
       try {
-        const doc = generatePDF(window.__lastAuditResult, activePreset);
+        const doc = await generatePDF(window.__lastAuditResult, activePreset);
         const fname = `code-audit-${activePreset}-${Date.now()}.pdf`;
         doc.save(fname);
       } catch (e2) {
