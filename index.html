@@ -2039,9 +2039,9 @@ addEventListener('click', e => {
       metricIssues: 'НАЙДЕНО ПРОБЛЕМ',
       metricScore: 'ОЦЕНКА / 100',
       summaryTitle: 'Сводка',
-      summaryTitleCyber: '// СВОДКА',
+      summaryTitleCyber: 'СВОДКА',
       issuesTitle: 'Детальный разбор проблем',
-      issuesTitleCyber: '// ДЕТАЛЬНЫЙ РАЗБОР',
+      issuesTitleCyber: 'ДЕТАЛЬНЫЙ РАЗБОР',
       issueCritical: 'КРИТИЧНО',
       issueWarning: 'ВНИМАНИЕ',
       whyLabel: 'Почему это проблема:',
@@ -2076,9 +2076,9 @@ addEventListener('click', e => {
       metricIssues: 'ISSUES FOUND',
       metricScore: 'SCORE / 100',
       summaryTitle: 'Summary',
-      summaryTitleCyber: '// SUMMARY',
+      summaryTitleCyber: 'SUMMARY',
       issuesTitle: 'Detailed Issue Breakdown',
-      issuesTitleCyber: '// DETAILED BREAKDOWN',
+      issuesTitleCyber: 'DETAILED BREAKDOWN',
       issueCritical: 'CRITICAL',
       issueWarning: 'WARNING',
       whyLabel: 'Why this is a problem:',
@@ -2304,7 +2304,7 @@ addEventListener('click', e => {
         why it matters, how to fix it, and an optional code sample.
         Shared across all layouts; only x/width/colors change.
   ───────────────────────────────────────────────────────────── */
-  async function drawIssueCard(doc, P, T, iss, x, y, width, H, M, presetKey, baseFont) {
+  async function drawIssueCard(doc, P, T, iss, x, y, width, H, M, presetKey, baseFont, headFont) {
     y = await ensureSpace(doc, y, 14, P, H, M, presetKey);
     const col = iss.type === 'err' ? P.err : P.warn;
 
@@ -2317,7 +2317,12 @@ addEventListener('click', e => {
     doc.text(`${lineTag}${sevTag}`, x + 6, y);
     y += 4.8;
 
-    doc.setFont(baseFont, 'bold'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
+    // Choose font for the issue label: use headFont (decorative) only if the
+    // label text consists of letters, digits, and spaces — the cyberpunk font
+    // has no punctuation glyphs and silently drops any line containing them.
+    const labelFont = (headFont && headFont !== baseFont && /^[\p{L}\p{N} ]+$/u.test(iss.label))
+      ? headFont : baseFont;
+    doc.setFont(labelFont, 'bold'); doc.setFontSize(9.5); doc.setTextColor(...P.text);
     const titleLines = wrapText(doc, iss.label, width - 6);
     y = await ensureSpace(doc, y, titleLines.length*4.4, P, H, M, presetKey);
     doc.text(titleLines, x + 6, y);
@@ -2571,7 +2576,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitleCyber, cx, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, cx, y, cw, H, 40, presetKey, baseFont); }
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, cx, y, cw, H, 40, presetKey, baseFont, headFont); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, cx, y);
@@ -2608,7 +2613,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitle, W/2, y, { align: 'center' }); y += 8;
 
       if (result.issues && result.issues.length) {
-        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M2, y, metricsW, H, M2, presetKey, baseFont); }
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M2, y, metricsW, H, M2, presetKey, baseFont, headFont); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, W/2, y, { align: 'center' });
@@ -2669,7 +2674,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitle, SM, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, SM, y, W - SM*2, H, SM, presetKey, baseFont); }
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, SM, y, W - SM*2, H, SM, presetKey, baseFont, headFont); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, SM, y);
@@ -2708,7 +2713,7 @@ addEventListener('click', e => {
       doc.text(T.issuesTitle, M, y); y += 7;
 
       if (result.issues && result.issues.length) {
-        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M, presetKey, baseFont); }
+        for (const iss of result.issues) { y = await drawIssueCard(doc, P, T, iss, M, y, W - M*2, H, M, presetKey, baseFont, headFont); }
       } else {
         doc.setFont(baseFont, 'normal'); doc.setFontSize(9.5); doc.setTextColor(...P.ok);
         doc.text(T.noIssues, M, y);
